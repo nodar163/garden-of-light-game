@@ -27,7 +27,7 @@ window.fetch = async function(input, options) {
 html = html.replace('</head>', '''<meta name="theme-color" content="#0e211d">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Сад света">
-<meta name="description" content="Спокойная головоломка: поверните дорожки и подарите свет цветам. 250 бесплатных уровней.">
+<meta name="description" content="Сад света: дорожки света и цветочное три в ряд. Два режима, 500 бесплатных уровней, звуки природы.">
 <style>body {background:#0e211d} #status {background:#0e211d}
 #status-progress {accent-color:#e6ca8e}</style>
 </head>''')

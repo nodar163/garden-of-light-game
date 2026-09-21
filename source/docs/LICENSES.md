@@ -2,6 +2,8 @@
 
 - `assets/icon.svg`, отрисовка в `scripts/board.gd` и оформление интерфейса созданы для этого проекта; сторонние картинки не использованы.
 - `assets/ambience.wav` и `assets/chime.wav` синтезированы кодом `tools_build_assets.py`; сторонние записи и семплы не использованы.
+- `assets/nature.wav`, `swap.wav`, `bloom.wav`, `power.wav`, `win.wav` синтезированы оригинальным `tools_nature_audio.py`; полевые записи и сторонние семплы не используются.
+- Цветы и эффекты «Цветочного каскада» созданы в `scripts/match_board.gd`, без графических ресурсов Royal Match. Источники изучения механики перечислены в `FLOWER-CASCADE.md`.
 - Шрифт — встроенный шрифт Godot. Его уведомления вместе с лицензиями движка доступны в игре: Настройки → Лицензии.
 - Godot Engine: MIT; полный текст и notices компонентов выводятся через `Engine.get_license_text()`, `Engine.get_copyright_info()` и `Engine.get_license_info()`.
 - Инструменты `.tools` не входят в игровой контент. Их лицензии поставляются с самими инструментами.

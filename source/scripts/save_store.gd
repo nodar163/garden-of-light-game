@@ -9,7 +9,7 @@ func _init(location: String = "user://progress.json") -> void:
 	data = defaults()
 
 static func defaults() -> Dictionary:
-	return {"version":1, "completed":[], "current":1, "boards":{}, "settings":{"language":"ru", "music":true, "sound":true, "reduce_motion":false}}
+	return {"version":1, "completed":[], "current":1, "boards":{}, "match3":{"current":1,"completed":[],"boards":{}}, "settings":{"language":"ru", "music":true, "sound":true, "reduce_motion":false}}
 
 static func valid(value: Variant) -> bool:
 	if not value is Dictionary or value.get("version") != 1:
@@ -32,6 +32,14 @@ static func valid(value: Variant) -> bool:
 	for key in ["music", "sound", "reduce_motion"]:
 		if not value.settings.get(key) is bool:
 			return false
+	if value.has("match3"):
+		var extra: Variant = value.match3
+		if not extra is Dictionary or not extra.get("completed") is Array or not extra.get("boards") is Dictionary: return false
+		if not typeof(extra.get("current")) in [TYPE_INT,TYPE_FLOAT] or int(extra.current) < 1 or int(extra.current) > 250: return false
+		for id in extra.completed:
+			if not typeof(id) in [TYPE_INT,TYPE_FLOAT] or float(id) != int(id) or int(id) < 1 or int(id) > 250: return false
+		for board in extra.boards.values():
+			if not board is Dictionary: return false
 	return true
 
 func read_valid(file_path: String) -> Variant:
@@ -51,6 +59,9 @@ func load_data() -> void:
 		var loaded: Variant = read_valid(candidate)
 		if loaded != null:
 			data = loaded
+			if not data.has("match3"): data.match3 = {"current":1,"completed":[],"boards":{}}
+			data.match3.current = int(data.match3.current)
+			for i in data.match3.completed.size(): data.match3.completed[i] = int(data.match3.completed[i])
 			data.current = int(data.current)
 			for i in data.completed.size():
 				data.completed[i] = int(data.completed[i])

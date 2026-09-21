@@ -3,6 +3,19 @@ const Rules = preload("res://scripts/puzzle.gd")
 const Saves = preload("res://scripts/save_store.gd")
 const Board = preload("res://scripts/board.gd")
 const Sound = preload("res://scripts/sound.gd")
+const MatchRules = preload("res://scripts/match_rules.gd")
+const MatchBoard = preload("res://scripts/match_board.gd")
+const MatchGoals = preload("res://scripts/match_goals.gd")
+var match_model = MatchRules.new()
+var match_levels: Array = []
+var match_group := -1
+var match_view: Control
+var match_goals: Control
+var match_moves: Label
+var match_message: Label
+var match_next: Button
+var match_hint_button: Button
+var match_restart_button: Button
 const LEVEL_COUNT := 250
 const REGION_RU = ["Первые лучи", "Розовый рассвет", "Лавандовый склон", "Бирюзовый ручей", "Янтарная долина", "Сапфировый вечер", "Коралловая роща", "Серебряная луна", "Северное сияние", "Сад тысячи звёзд"]
 const REGION_EN = ["First light", "Rose dawn", "Lavender hillside", "Turquoise stream", "Amber valley", "Sapphire evening", "Coral grove", "Silver moon", "Northern lights", "Garden of stars"]
@@ -34,6 +47,11 @@ func _ready() -> void:
 		if arg.begins_with("--capture="):
 			store = Saves.new("user://capture-progress.json")
 	store.load_data()
+	var match_data: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://match_levels/levels.json"))
+	if match_data is Array and match_data.size() == 250:
+		match_levels = match_data
+	else:
+		error_message = "Flower Cascade levels could not be loaded"
 	for id in range(1, LEVEL_COUNT + 1):
 		var file := FileAccess.open("res://levels/%02d.json" % id, FileAccess.READ)
 		if file == null:
@@ -96,6 +114,7 @@ func _layout() -> void:
 
 func clear_page(name_value: String) -> void:
 	page = name_value
+	if sound != null: sound.set_home(name_value == "home")
 	board = null
 	if shell != null:
 		remove_child(shell)
@@ -187,14 +206,16 @@ func show_home() -> void:
 	if not error_message.is_empty():
 		label(error_message, 20)
 		return
-	button(words("Продолжить", "Continue") + "  ›", func(): open_level(clampi(int(store.data.current),1,unlocked())), null, true)
+	button(words("Цветочный каскад · три в ряд", "Flower Cascade · match 3"), show_match_levels, null, true)
+	button(words("Дорожки света · продолжить", "Light paths · continue") + "  ›", func(): open_level(clampi(int(store.data.current),1,unlocked())), null, true)
 	button(words("Выбрать полянку", "Choose a clearing"), show_levels)
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	root_box.add_child(row)
 	button(words("Мой сад", "My garden"), show_garden, row)
 	button(words("Настройки", "Settings"), show_settings, row)
-	label(words("250 полянок · 10 красочных областей", "250 clearings · 10 colourful regions"), 19, MUTED)
+	label(words("2 режима · 500 полянок", "2 modes · 500 clearings"), 19, MUTED)
+	label(words("Звуки природы включаются после первого касания.", "Nature sounds begin after your first tap."), 16, MUTED)
 	if store.recovered:
 		label(words("Сохранение восстановлено. Проверьте прогресс.", "Save recovered. Please check your progress."), 18)
 
@@ -368,7 +389,7 @@ func show_settings() -> void:
 	header(words("Настройки", "Settings"))
 	label(words("Как вам спокойно", "Make yourself at home"), 40)
 	spacer()
-	for setting in [["music", words("Музыка", "Music")], ["sound", words("Звуки", "Sounds")], ["reduce_motion", words("Меньше анимаций", "Reduced motion")]]:
+	for setting in [["music", words("Музыка и природа", "Music and nature")], ["sound", words("Звуки", "Sounds")], ["reduce_motion", words("Меньше анимаций", "Reduced motion")]]:
 		var key: String = setting[0]
 		button(setting[1] + "  ·  " + (words("Вкл", "On") if store.data.settings[key] else words("Выкл", "Off")), toggle.bind(key))
 	button("Язык / Language  ·  " + ("Русский" if store.data.settings.language == "ru" else "English"), func():
@@ -415,3 +436,137 @@ func _notification(what: int) -> void:
 		else:
 			persist()
 			get_tree().quit()
+
+func match_unlocked() -> int:
+	var result := 1
+	for id in range(1,251):
+		if id not in store.data.match3.completed: break
+		result = mini(id+1,250)
+	return result
+
+func show_match_levels() -> void:
+	clear_page("match_levels")
+	header(words("Цветочный каскад", "Flower Cascade"))
+	label(words("Соберите свой букет", "Gather a bouquet"),36)
+	label(words("Три цветка в ряд — и сад расцветает.", "Match three flowers and let the garden bloom."),22,MUTED)
+	button(words("Продолжить · уровень ", "Continue · level ")+str(store.data.match3.current),open_match.bind(int(store.data.match3.current)),null,true)
+	if match_group < 0: match_group = (int(store.data.match3.current)-1)/25
+	var nav := HBoxContainer.new()
+	root_box.add_child(nav)
+	button("‹", match_page.bind(-1),nav).disabled = match_group == 0
+	button("%d–%d / 250" % [match_group*25+1,(match_group+1)*25],func(): pass,nav).mouse_filter=Control.MOUSE_FILTER_IGNORE
+	button("›", match_page.bind(1),nav).disabled = match_group == 9
+	label(words(REGION_RU[match_group],REGION_EN[match_group]),26)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	root_box.add_child(scroll)
+	var grid := GridContainer.new()
+	grid.columns=5; grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation",12); grid.add_theme_constant_override("v_separation",12)
+	scroll.add_child(grid)
+	for id in range(match_group*25+1,(match_group+1)*25+1):
+		var text_value := str(id)+(" +" if id in store.data.match3.completed else "")
+		var item := button(text_value,open_match.bind(id),grid)
+		item.custom_minimum_size.y=88; item.disabled=id>match_unlocked()
+	label(words("Букетов собрано: ", "Bouquets completed: ")+"%d / 250" % store.data.match3.completed.size(),22,MUTED)
+	button(words("Как играть и усилители", "How to play and power-ups"),show_match_help)
+
+func match_page(direction: int) -> void:
+	match_group=clampi(match_group+direction,0,9)
+	show_match_levels()
+
+func show_match_help() -> void:
+	clear_page("match_help")
+	header(words("Как играть", "How to play"))
+	label(words("Цветочный каскад", "Flower Cascade"),36)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	root_box.add_child(scroll)
+	var text_value := Label.new()
+	text_value.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	text_value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+	text_value.add_theme_font_size_override("font_size",25)
+	text_value.text=words("Меняйте соседние цветы свайпом или двумя касаниями. Собирайте ряды из трёх и больше.\n\nЦели: собрать нужные цветы и убрать всю голубую росу. Совпадение или усилитель снимает один слой росы под цветком. Двойная рамка — два слоя.\n\n4 в ряд → луч очищает ряд или столбец.\nКвадрат 2×2 → бабочка помогает убрать росу или собрать нужный цветок.\nТ- или Г-форма → цветочный взрыв.\n5 в ряд → радуга собирает один цвет.\n\nКоснитесь усилителя или поменяйте его с соседом. Два усилителя вместе дают более сильный эффект.\n\nХоды ограничены. Неверный обмен не тратит ход. Попытки и подсказки бесплатны. Если ходов нет на поле, цветы перемешаются автоматически.\n\nНа клавиатуре: стрелки — выбор, Enter — отметить цветок и соседнюю клетку.","Swipe adjacent flowers or tap two neighbours. Match three or more.\n\nGoals: collect the requested flowers and clear all blue dew. Matches and power-ups remove one layer beneath a flower. A double outline means two layers.\n\n4 in a line → a beam clears a row or column.\n2×2 square → a butterfly targets dew or a needed flower.\nT or L shape → a flower burst.\n5 in a line → a rainbow gathers one colour.\n\nTap a power-up or swap it with a neighbour. Combine two power-ups for a stronger effect.\n\nMoves are limited. Invalid swaps cost no moves. Retries and hints are free. A board without moves shuffles automatically.\n\nKeyboard: arrows to move, Enter to select a flower and its neighbour.")
+	scroll.add_child(text_value)
+	button(words("К букетам", "Back to bouquets"),show_match_levels,null,true)
+
+func open_match(id: int) -> void:
+	if id < 1 or id > match_levels.size() or id > match_unlocked(): return
+	store.data.match3.current=id
+	match_model.setup(match_levels[id-1],store.data.match3.boards.get(str(id),{}))
+	clear_page("match")
+	header(words("КАСКАД ", "CASCADE ")+"%d / 250" % id)
+	label(words(REGION_RU[(id-1)/25],REGION_EN[(id-1)/25]),32)
+	match_goals=MatchGoals.new()
+	match_goals.model=match_model
+	match_goals.custom_minimum_size.y=82
+	root_box.add_child(match_goals)
+	match_moves=label("",26)
+	match_view=MatchBoard.new()
+	match_view.model=match_model
+	match_view.reduced=store.data.settings.reduce_motion
+	match_view.size_flags_vertical=Control.SIZE_EXPAND_FILL
+	match_view.custom_minimum_size.y=360
+	match_view.committed.connect(save_match)
+	match_view.animation_done.connect(match_finished)
+	match_view.sound_requested.connect(sound.play_match)
+	root_box.add_child(match_view)
+	match_message=label("",21,MUTED)
+	match_message.custom_minimum_size.y=54
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation",12)
+	root_box.add_child(row)
+	match_hint_button=button(words("Подсказка", "Hint"),match_hint,row)
+	match_restart_button=button(words("Заново", "Retry"),restart_match,row)
+	button(words("Уровни", "Levels"),show_match_levels,row)
+	match_next=button(words("Следующий букет  ›", "Next bouquet  ›"),advance_match,null,true)
+	refresh_match()
+	save_match()
+
+func refresh_match() -> void:
+	if page != "match": return
+	match_goals.queue_redraw()
+	match_moves.text=words("Ходов осталось: ","Moves left: ")+str(match_model.moves)
+	var victory: bool=match_model.won()
+	match_next.visible=victory
+	match_next.text=words("Все букеты собраны!", "All bouquets complete!") if int(match_model.level.id)==250 else words("Следующий букет  ›", "Next bouquet  ›")
+	match_hint_button.disabled=match_view.busy or victory or match_model.moves<=0
+	match_restart_button.disabled=match_view.busy
+	if victory: match_message.text=words("Прекрасный букет! Полянка расцвела.","A lovely bouquet! The clearing is in bloom.")
+	elif match_model.moves<=0: match_message.text=words("Ходы закончились. Попробуйте ещё — это бесплатно.","Out of moves. Try again — every retry is free.")
+	elif int(match_model.level.id)<=3: match_message.text=words("Свайп или два касания: соедините 3 цветка одного вида.","Swipe or tap two neighbours to match 3 flowers.")
+	else: match_message.text=words("Собирайте букеты, соединяйте усилители.","Gather bouquets and combine power-ups.")
+
+func save_match() -> void:
+	if match_model.level == null: return
+	var id: int=int(match_model.level.id)
+	store.data.match3.boards[str(id)]=match_model.snapshot()
+	if match_model.won() and id not in store.data.match3.completed: store.data.match3.completed.append(id)
+	if not store.write():
+		push_error(store.last_error)
+		if page == "match": match_message.text=words("Не удалось сохранить. Проверьте свободное место.","Could not save. Check free storage.")
+	if page == "match":
+		match_hint_button.disabled=match_view.busy or match_model.won() or match_model.moves<=0
+		match_restart_button.disabled=match_view.busy
+
+func match_finished(valid: bool) -> void:
+	refresh_match()
+	if match_model.won(): sound.play_match("win")
+	elif not valid: match_message.text=words("Здесь нет совпадения. Ход сохранён.","No match there. No move was spent.")
+
+func match_hint() -> void:
+	if match_view.busy: return
+	match_view.hint_cells=match_model.suggest()
+	match_view.queue_redraw()
+	match_message.text=words("Выделен доступный ход. Попробуйте его.","A possible move is highlighted. Try it.")
+
+func restart_match() -> void:
+	if match_view.busy: return
+	var id: int=int(match_model.level.id)
+	store.data.match3.boards.erase(str(id))
+	open_match(id)
+
+func advance_match() -> void:
+	var id: int=int(match_model.level.id)
+	if id<250: open_match(id+1)
+	else: show_match_levels()
