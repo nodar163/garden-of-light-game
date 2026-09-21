@@ -16,6 +16,8 @@ var match_message: Label
 var match_next: Button
 var match_hint_button: Button
 var match_restart_button: Button
+var tool_buttons: Array=[]
+var starter_button: Button
 const LEVEL_COUNT := 250
 const REGION_RU = ["Первые лучи", "Розовый рассвет", "Лавандовый склон", "Бирюзовый ручей", "Янтарная долина", "Сапфировый вечер", "Коралловая роща", "Серебряная луна", "Северное сияние", "Сад тысячи звёзд"]
 const REGION_EN = ["First light", "Rose dawn", "Lavender hillside", "Turquoise stream", "Amber valley", "Sapphire evening", "Coral grove", "Silver moon", "Northern lights", "Garden of stars"]
@@ -486,7 +488,7 @@ func show_match_help() -> void:
 	text_value.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	text_value.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	text_value.add_theme_font_size_override("font_size",25)
-	text_value.text=words("Меняйте соседние цветы свайпом или двумя касаниями. Собирайте ряды из трёх и больше.\n\nЦели: собрать нужные цветы и убрать всю голубую росу. Совпадение или усилитель снимает один слой росы под цветком. Двойная рамка — два слоя.\n\n4 в ряд → луч очищает ряд или столбец.\nКвадрат 2×2 → бабочка помогает убрать росу или собрать нужный цветок.\nТ- или Г-форма → цветочный взрыв.\n5 в ряд → радуга собирает один цвет.\n\nКоснитесь усилителя или поменяйте его с соседом. Два усилителя вместе дают более сильный эффект.\n\nХоды ограничены. Неверный обмен не тратит ход. Попытки и подсказки бесплатны. Если ходов нет на поле, цветы перемешаются автоматически.\n\nНа клавиатуре: стрелки — выбор, Enter — отметить цветок и соседнюю клетку.","Swipe adjacent flowers or tap two neighbours. Match three or more.\n\nGoals: collect the requested flowers and clear all blue dew. Matches and power-ups remove one layer beneath a flower. A double outline means two layers.\n\n4 in a line → a beam clears a row or column.\n2×2 square → a butterfly targets dew or a needed flower.\nT or L shape → a flower burst.\n5 in a line → a rainbow gathers one colour.\n\nTap a power-up or swap it with a neighbour. Combine two power-ups for a stronger effect.\n\nMoves are limited. Invalid swaps cost no moves. Retries and hints are free. A board without moves shuffles automatically.\n\nKeyboard: arrows to move, Enter to select a flower and its neighbour.")
+	text_value.text=words("Меняйте соседние цветы свайпом или двумя касаниями. Собирайте ряды из трёх и больше.\n\nЦели: собрать нужные цветы и убрать всю голубую росу. Совпадение или усилитель снимает один слой росы под цветком. Двойная рамка — два слоя.\n\n4 в ряд → луч очищает ряд или столбец.\nКвадрат 2×2 → бабочка помогает убрать росу или собрать нужный цветок.\nТ- или Г-форма → цветочный взрыв.\n5 в ряд → радуга собирает один цвет.\n\nКоснитесь усилителя или поменяйте его с соседом. Два усилителя вместе дают более сильный эффект.\n\nХоды ограничены. Неверный обмен не тратит ход. Попытки и подсказки бесплатны. Если ходов нет на поле, цветы перемешаются автоматически.\n\nПрепятствия: лианы удерживают цветок; лёд тает от совпадений рядом; камни разбиваются только усилителями; горшок требует совпадения цвета его цветка рядом. Цифра — слои.\n\nИнструменты под полем: молоточек, ряд, столбец, перемешивание — по одному на попытку, без расхода хода. «Старт +» даёт один усилитель перед первым ходом.\n\nДве бомбы — большой взрыв; две бабочки — три цели; бабочка переносит луч или бомбу; радуга превращает самый частый цвет в усилители.\n\nНа клавиатуре: стрелки — выбор, Enter — отметить цветок и соседнюю клетку.","Swipe adjacent flowers or tap two neighbours. Match three or more.\n\nGoals: collect the requested flowers and clear all blue dew. Matches and power-ups remove one layer beneath a flower. A double outline means two layers.\n\n4 in a line → a beam clears a row or column.\n2×2 square → a butterfly targets dew or a needed flower.\nT or L shape → a flower burst.\n5 in a line → a rainbow gathers one colour.\n\nTap a power-up or swap it with a neighbour. Combine two power-ups for a stronger effect.\n\nMoves are limited. Invalid swaps cost no moves. Retries and hints are free. A board without moves shuffles automatically.\n\nObstacles: vines hold flowers; ice melts beside matches; stones need power-ups; pots need a matching flower colour beside them. Numbers show layers.\n\nTools below the board: hammer, row, column and shuffle, one each per attempt, no move spent. Start + places one power-up before your first move.\n\nTwo bombs make a large blast; two butterflies hit three targets; butterflies carry bombs or rockets; rainbow converts the most common colour to power-ups.\n\nKeyboard: arrows to move, Enter to select a flower and its neighbour.")
 	scroll.add_child(text_value)
 	button(words("К букетам", "Back to bouquets"),show_match_levels,null,true)
 
@@ -511,6 +513,21 @@ func open_match(id: int) -> void:
 	match_view.animation_done.connect(match_finished)
 	match_view.sound_requested.connect(sound.play_match)
 	root_box.add_child(match_view)
+	tool_buttons.clear()
+	var tools_row:=HBoxContainer.new()
+	tools_row.add_theme_constant_override("separation",8)
+	root_box.add_child(tools_row)
+	for k in 4:
+		var item:=button("1",select_match_tool.bind(k),tools_row)
+		item.icon=MatchBoard.Art.icon(11+k)
+		item.expand_icon=true
+		item.add_theme_constant_override("icon_max_width",42)
+		item.custom_minimum_size=Vector2(0,60)
+		item.tooltip_text=words(["Молоточек: убрать клетку","Горизонтальный луч","Вертикальный луч","Перемешать цветы"][k],["Hammer: clear one tile","Clear a row","Clear a column","Shuffle flowers"][k])
+		tool_buttons.append(item)
+	starter_button=button(words("Старт +","Start +"),show_starter,tools_row)
+	starter_button.add_theme_font_size_override("font_size",18)
+	starter_button.custom_minimum_size=Vector2(0,60)
 	match_message=label("",21,MUTED)
 	match_message.custom_minimum_size.y=54
 	var row := HBoxContainer.new()
@@ -525,6 +542,10 @@ func open_match(id: int) -> void:
 
 func refresh_match() -> void:
 	if page != "match": return
+	for k in tool_buttons.size():
+		tool_buttons[k].text=str(match_model.tools_left[k])
+		tool_buttons[k].disabled=match_view.busy or match_model.won() or int(match_model.tools_left[k])<=0
+	starter_button.disabled=match_view.busy or match_model.starter_used or match_model.moves!=int(match_model.level.moves) or match_model.won()
 	match_goals.queue_redraw()
 	match_moves.text=words("Ходов осталось: ","Moves left: ")+str(match_model.moves)
 	var victory: bool=match_model.won()
@@ -556,6 +577,7 @@ func match_finished(valid: bool) -> void:
 
 func match_hint() -> void:
 	if match_view.busy: return
+	match_view.active_tool=-1
 	match_view.hint_cells=match_model.suggest()
 	match_view.queue_redraw()
 	match_message.text=words("Выделен доступный ход. Попробуйте его.","A possible move is highlighted. Try it.")
@@ -570,3 +592,25 @@ func advance_match() -> void:
 	var id: int=int(match_model.level.id)
 	if id<250: open_match(id+1)
 	else: show_match_levels()
+
+func select_match_tool(kind: int) -> void:
+	if match_view.busy or match_model.won() or int(match_model.tools_left[kind])<=0: return
+	if kind==3:
+		match_view.busy=true
+		match_view.animate_frames(match_model.use_tool(kind,0))
+	else:
+		match_view.active_tool=kind
+		match_message.text=words("Коснитесь клетки. Инструмент не тратит ход.","Tap a tile. The tool costs no move.")
+
+func show_starter() -> void:
+	if starter_button.disabled: return
+	var menu:=PopupMenu.new()
+	add_child(menu)
+	for i in 3:
+		menu.add_item(words(["Луч","Бомба","Радуга"][i],["Rocket","Bomb","Rainbow"][i]),i)
+	menu.id_pressed.connect(func(i):
+		if match_model.start_booster(["row","burst","rainbow"][i]):
+			match_view.shown=match_model.snapshot(); match_view.queue_redraw()
+			save_match(); refresh_match())
+	menu.popup_hide.connect(menu.queue_free)
+	menu.popup_centered(Vector2i(300,190))

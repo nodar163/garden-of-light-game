@@ -15,7 +15,7 @@ func _ready() -> void:
 	add_child(music)
 	add_child(effect)
 	add_child(nature)
-	music.stream = load("res://assets/ambience.wav")
+	music.stream = load("res://assets/garden-music.wav")
 	music.volume_db = -17
 	music.finished.connect(func(): music.play())
 	effect.stream = load("res://assets/chime.wav")
@@ -43,7 +43,7 @@ func set_home(value: bool) -> void:
 	if home and music_enabled:
 		if not nature.playing: nature.play()
 	else: nature.stop()
-	music.volume_db = -25 if home else -20
+	music.volume_db = -14 if home else -11
 
 func play_match(kind: String) -> void:
 	if enabled and match_streams.has(kind):

@@ -1,9 +1,11 @@
 """Polish the Godot web export; no third-party Python packages required."""
 from pathlib import Path
 import gzip
+import hashlib
 
 root = Path(__file__).parent / 'web-site' / 'dist'
 page = root / 'index.html'
+pack_version = hashlib.sha256((root/'index.pck').read_bytes()).hexdigest()[:12]
 html = page.read_text(encoding='utf-8')
 html = html.replace('<html lang="en">', '<html lang="ru">')
 html = html.replace('<script src="index.js"></script>', '''<script>
@@ -11,6 +13,9 @@ html = html.replace('<script src="index.js"></script>', '''<script>
 const originalFetch = window.fetch.bind(window);
 window.fetch = async function(input, options) {
   const url = typeof input === 'string' ? input : input.url;
+  if (url && new URL(url, location.href).pathname.endsWith('/index.pck')) {
+    return originalFetch(new URL('index.pck?v=PACK_VERSION', location.href), options);
+  }
   if (url && new URL(url, location.href).pathname.endsWith('/index.wasm')) {
     if (!('DecompressionStream' in window)) {
       throw new Error('Обновите Safari / iOS для запуска игры (iOS 16.4 или новее).');
@@ -31,12 +36,13 @@ html = html.replace('</head>', '''<meta name="theme-color" content="#0e211d">
 <style>body {background:#0e211d} #status {background:#0e211d}
 #status-progress {accent-color:#e6ca8e}</style>
 </head>''')
-page.write_text(html, encoding='utf-8')
+page.write_text(html.replace('PACK_VERSION',pack_version), encoding='utf-8')
 wasm = root / 'index.wasm'
 (root / 'index.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
 wasm.unlink()
 worker = root / 'index.service.worker.js'
 worker_text = worker.read_text(encoding='utf-8').replace('"index.wasm"', '"index.wasm.gz"')
+worker_text = worker_text.replace('"index.pck"', '"index.pck?v='+pack_version+'"')
 # Activate a completed update even if another game tab remains open. Saved
 # progress lives in IndexedDB, separately from this disposable asset cache.
 worker_text = worker_text.replace('cache.addAll(CACHED_FILES)))',

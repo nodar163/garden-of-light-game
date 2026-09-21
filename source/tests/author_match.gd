@@ -17,6 +17,14 @@ func _initialize() -> void:
 				var i := (k*17+id*7)%(n*n)
 				dew[i] = 2 if id >= 126 and k%3 == 0 else 1
 		var data := {"id":id,"size":n,"colors":colors,"moves":220,"seed":7001+id*7919,"targets":targets,"dew":dew}
+		var obstacles: Array=[]; var layers: Array=[]
+		obstacles.resize(n*n); obstacles.fill(0); layers.resize(n*n); layers.fill(0)
+		if id>=26:
+			for k in mini(8,1+chapter):
+				var index: int=(k*13+id*3)%(n*n)
+				var kind: int=1+((k+id)%mini(4,1+chapter/2))
+				obstacles[index]=kind; layers[index]=2 if id>=101 else 1
+		data.obstacles=obstacles; data.layers=layers
 		var model = Rules.new()
 		model.record_frames = false
 		model.setup(data)

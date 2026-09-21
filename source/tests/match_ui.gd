@@ -61,6 +61,25 @@ func run() -> void:
 	game.open_match(1)
 	check(game.match_model.snapshot()==mid_animation,"leaving during cascade restores settled state")
 	game.restart_match()
+	game.match_view.reduced=true
+	var tool_moves: int=game.match_model.moves
+	game.select_match_tool(0)
+	game.match_view.choose(14)
+	check(game.match_model.moves==tool_moves and game.match_model.tools_left[0]==0,"tool UI consumes tool without move")
+	check(game.tool_buttons[0].disabled,"consumed tool disabled")
+	game.show_home(); await process_frame; game.open_match(1)
+	check(game.match_model.tools_left[0]==0,"tool inventory survives page change")
+	game.restart_match()
+	game.show_starter()
+	await process_frame
+	var menu=game.get_child(game.get_child_count()-1)
+	check(menu is PopupMenu,"starter choice opens")
+	menu.id_pressed.emit(1); menu.hide()
+	check(game.match_model.starter_used and game.match_model.powers.count("burst")==1,"starter UI places bomb")
+	game.match_model.powers[15]="bee"
+	game.match_view.shown=game.match_model.snapshot(); game.match_view.queue_redraw()
+	await capture("premium-powers")
+	game.restart_match()
 	for id in [1,26,126,250]:
 		game.store.data.match3.completed=range(1,id)
 		game.store.data.settings.reduce_motion=true

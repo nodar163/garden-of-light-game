@@ -2,6 +2,8 @@ extends Control
 signal committed
 signal animation_done(valid: bool)
 signal sound_requested(kind: String)
+const Art = preload("res://scripts/match_art.gd")
+var style_cache: Dictionary = {}
 const Model = preload("res://scripts/match_rules.gd")
 var model: Model
 var shown: Dictionary = {}
@@ -15,6 +17,7 @@ var motion: Dictionary = {}
 var blend := 1.0
 var cascade := 0
 var cursor := 0
+var active_tool := -1
 const PETALS = [Color("ff668e"),Color("ffc94f"),Color("ae7aff"),Color("41cfea"),Color("ff9654"),Color("87dd68")]
 
 func _ready() -> void:
@@ -41,7 +44,7 @@ func at(position_value: Vector2) -> int:
 	return int(local.y)*model.n+int(local.x)
 
 func _gui_input(event: InputEvent) -> void:
-	if busy or model.won() or model.moves <= 0: return
+	if busy or model.won() or (model.moves <= 0 and active_tool < 0): return
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT:
 		if event.pressed:
 			press_index = at(event.position)
@@ -49,7 +52,8 @@ func _gui_input(event: InputEvent) -> void:
 			grab_focus()
 		elif press_index >= 0:
 			var delta: Vector2 = event.position-press_position
-			if delta.length() > field_rect().size.x/model.n*0.28:
+			if active_tool>=0: choose(press_index)
+			elif delta.length() > field_rect().size.x/model.n*0.28:
 				var dest := press_index+(int(signf(delta.x)) if absf(delta.x)>absf(delta.y) else int(signf(delta.y))*model.n)
 				if model.adjacent(press_index,dest): animate_move(press_index,dest)
 			else: choose(press_index)
@@ -64,7 +68,12 @@ func _gui_input(event: InputEvent) -> void:
 		elif event.keycode in [KEY_ENTER,KEY_SPACE]: choose(cursor); accept_event()
 
 func choose(i: int) -> void:
-	if i < 0: return
+	if i < 0 or busy: return
+	if active_tool>=0:
+		var tool:=active_tool; active_tool=-1
+		busy=true
+		animate_frames(model.use_tool(tool,i))
+		return
 	if selected >= 0 and model.adjacent(selected,i): animate_move(selected,i)
 	elif model.powers[i] != "": animate_move(i,-1)
 	else:
@@ -76,6 +85,9 @@ func animate_move(a: int, b: int) -> void:
 	busy = true
 	selected = -1; hint_cells.clear(); cascade = 0
 	var valid: bool = model.play(a,b)
+	animate_frames(valid)
+
+func animate_frames(valid: bool) -> void:
 	# Save the settled model before any animation, including when leaving mid-cascade.
 	committed.emit()
 	for event in model.frames:
@@ -84,12 +96,12 @@ func animate_move(a: int, b: int) -> void:
 		blend = 0
 		var duration := 0.0
 		match event.kind:
-			"swap": duration = 0.17; sound_requested.emit("swap")
+			"swap": duration = 0.14; sound_requested.emit("swap")
 			"clear":
-				duration = 0.22; cascade += 1
+				duration = 0.18; cascade += 1
 				sound_requested.emit("power" if not event.activated.is_empty() else "match")
-			"fall": duration = 0.3
-			"shuffle": duration = 0.3
+			"fall": duration = 0.22
+			"shuffle": duration = 0.22
 		if duration > 0 and not reduced:
 			var tween := create_tween()
 			tween.tween_method(func(t: float): blend=t; queue_redraw(),0.0,1.0,duration).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -101,57 +113,18 @@ func animate_move(a: int, b: int) -> void:
 	animation_done.emit(valid)
 
 func box(rect: Rect2, color: Color, border: Color, radius: int) -> void:
-	var style := StyleBoxFlat.new()
-	style.bg_color = color; style.border_color = border
-	style.set_border_width_all(2); style.set_corner_radius_all(radius)
+	var key:=str(color)+str(border)+str(radius)
+	if not style_cache.has(key):
+		var created:=StyleBoxFlat.new()
+		created.bg_color=color; created.border_color=border
+		created.set_border_width_all(2); created.set_corner_radius_all(radius)
+		style_cache[key]=created
+	var style: StyleBoxFlat=style_cache[key]
 	draw_style_box(style,rect)
 
 func blossom(center: Vector2, radius: float, color_index: int, power: String = "", opacity: float = 1.0) -> void:
 	if radius < 0.3: return
-	var color: Color = PETALS[color_index]
-	draw_circle(center+Vector2(0,radius*0.15),radius*0.92,Color(0.01,0.07,0.08,0.25*opacity),true,-1.0,true)
-	for side in [-1,1]:
-		draw_set_transform(center+Vector2(side*radius*0.56,radius*0.54),side*-0.55,Vector2(1,0.42))
-		draw_circle(Vector2.ZERO,radius*0.46,Color(Color("3cbd7d"),opacity),true,-1.0,true)
-		draw_line(Vector2(-radius*0.28,0),Vector2(radius*0.28,0),Color(Color("b8f6a6"),opacity),1.5,true)
-		draw_set_transform(Vector2.ZERO)
-	var count: int = [5,8,6,4,7,9][color_index]
-	for k in count:
-		var angle := TAU*k/count-PI/2
-		var p := center+Vector2.from_angle(angle)*radius*0.47
-		draw_set_transform(p,angle,Vector2(1,0.72 if color_index != 3 else 0.95))
-		draw_circle(Vector2.ZERO,radius*0.52,Color(color.darkened(0.27),opacity),true,-1.0,true)
-		draw_circle(Vector2(-radius*0.045,-radius*0.055),radius*0.46,Color(color,opacity),true,-1.0,true)
-		draw_circle(Vector2(-radius*0.06,-radius*0.1),radius*0.32,Color(color.lightened(0.22),opacity),true,-1.0,true)
-		draw_arc(Vector2(-radius*0.03,-radius*0.08),radius*0.31,PI*1.1,PI*1.8,12,Color(1,1,1,0.48*opacity),radius*0.045,true)
-		draw_set_transform(Vector2.ZERO)
-	draw_circle(center,radius*0.3,Color(Color("ac681f"),opacity),true,-1.0,true)
-	draw_circle(center-Vector2(0,radius*0.045),radius*0.25,Color(Color("ffe78a"),opacity),true,-1.0,true)
-	for k in 6:
-		draw_circle(center+Vector2.from_angle(k*TAU/6)*radius*0.14,radius*0.032,Color(Color("b88735"),opacity),true,-1.0,true)
-	if power != "":
-		draw_circle(center,radius*0.62,Color(0.08,0.13,0.24,0.86*opacity),true,-1.0,true)
-		draw_arc(center,radius*0.63,0,TAU,36,Color(Color("fff4be"),opacity),radius*0.06,true)
-		match power:
-			"row","column":
-				var direction := Vector2.RIGHT if power == "row" else Vector2.DOWN
-				draw_line(center-direction*radius*0.4,center+direction*radius*0.4,Color("fff7da"),radius*0.12,true)
-				for side in [-1,1]:
-					var p: Vector2 = center+direction*side*radius*0.42
-					draw_line(p,p-direction.rotated(0.7)*side*radius*0.22,Color("fff7da"),radius*0.08,true)
-					draw_line(p,p-direction.rotated(-0.7)*side*radius*0.22,Color("fff7da"),radius*0.08,true)
-			"burst":
-				var star := PackedVector2Array()
-				for k in 12: star.append(center+Vector2.from_angle(k*TAU/12-PI/2)*radius*(0.48 if k%2==0 else 0.22))
-				draw_colored_polygon(star,Color("ffda8d"))
-			"bee":
-				for side in [-1,1]:
-					draw_circle(center+Vector2(side*radius*0.21,-radius*0.08),radius*0.23,Color("f7c0ff"),true,-1.0,true)
-					draw_circle(center+Vector2(side*radius*0.15,radius*0.18),radius*0.16,Color("ffc473"),true,-1.0,true)
-				draw_line(center-Vector2(0,radius*0.3),center+Vector2(0,radius*0.35),Color("fff9dc"),radius*0.09,true)
-			"rainbow":
-				for k in 6: draw_arc(center,radius*(0.49-k*0.055),PI,TAU,20,PETALS[k],radius*0.07,true)
-				draw_circle(center+Vector2(0,radius*0.2),radius*0.1,Color("ffffff"),true,-1.0,true)
+	Art.draw_icon(self,center,radius*1.14,int(Art.POWERS.get(power,color_index)),opacity)
 
 func _draw() -> void:
 	if shown.is_empty(): return
@@ -190,6 +163,16 @@ func _draw() -> void:
 			for k in 5:
 				var spark := p+Vector2.from_angle(k*TAU/5+i)*cell*blend*0.6
 				if rect.has_point(spark): draw_circle(spark,cell*0.036*(1-blend),Color(PETALS[int(shown.cells[i])],1-blend),true,-1.0,true)
+	for i in model.n*model.n:
+		var hp:=int(shown.get("layers",model.layers)[i])
+		if hp<=0: continue
+		var p:=tile_center(i)
+		var kind:=int(model.obstacles[i])
+		Art.draw_obstacle(self,p,cell*0.47,kind-1)
+		if kind==4: Art.draw_icon(self,p+Vector2(0,cell*0.13),cell*0.16,int(shown.cells[i]))
+		if hp>1:
+			draw_circle(p+Vector2(cell*.3,-cell*.3),cell*.13,Color("fff3cf"))
+			draw_string(ThemeDB.fallback_font,p+Vector2(cell*.25,-cell*.24),str(hp),HORIZONTAL_ALIGNMENT_LEFT,-1,int(cell*.2),Color("263751"))
 	if motion.get("kind","") == "clear":
 		for effect in motion.get("effects",[]):
 			var p:=tile_center(int(effect.at))
@@ -202,6 +185,6 @@ func _draw() -> void:
 				"bee":
 					var dest:=tile_center(int(effect.target))
 					var spot:=p.lerp(dest,blend)+Vector2(0,-sin(blend*PI)*cell*0.6)
-					for side in [-1,1]: draw_circle(spot+Vector2(side*6,0),7,Color("ffd2fb"),true,-1.0,true)
+					Art.draw_icon(self,spot,cell*0.4,7,1-blend*0.35)
 				"rainbow":
 					for k in 6: draw_arc(p,cell*(0.35+blend*1.2+k*0.07),0,TAU,48,Color(PETALS[k],1-blend),3,true)

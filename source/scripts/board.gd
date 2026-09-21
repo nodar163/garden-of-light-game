@@ -1,5 +1,6 @@
 extends Control
 signal tile_pressed(index: int)
+const Art = preload("res://scripts/match_art.gd")
 const Rules = preload("res://scripts/puzzle.gd")
 var puzzle: RefCounted
 var hint := -1
@@ -59,32 +60,10 @@ func flower(center: Vector2, radius: float, amount: float, variant: int = 0) -> 
 		draw_circle(Vector2.ZERO, radius * 0.49, green)
 		draw_line(Vector2(-radius*0.33,0), Vector2(radius*0.34,0), Color("b4efab"), maxf(1,radius*0.045), true)
 		draw_set_transform(Vector2.ZERO)
-	var palette := [Color("ffd578"), Color("ff8eaa"), Color("bca1ff"), Color("7ee4ef"), Color("ffb786")]
-	var color: Color = palette[variant % palette.size()]
 	if amount > 0.01:
-		draw_circle(center, radius * 1.8, Color(color, 0.04 * amount))
-		for glow in 4:
-			draw_circle(center, radius * (2.3 - glow * 0.3), Color(color, 0.018 * amount))
-		var petals := 6 + variant%4
-		for k in petals:
-			var a := TAU * k / petals - PI/2
-			var p := center + Vector2.from_angle(a) * radius * 0.65 * amount
-			draw_set_transform(p, a, Vector2(1, 0.62))
-			draw_circle(Vector2.ZERO, radius * (0.25 + 0.4 * amount), Color(color, amount))
-			draw_circle(Vector2(-radius*0.1,0), radius * 0.28 * amount, Color(color.lightened(0.35), amount))
-			draw_line(Vector2.ZERO, Vector2(radius*0.36*amount,0), Color(color.darkened(0.16),amount*0.5), maxf(1,radius*0.035), true)
-			draw_set_transform(Vector2.ZERO)
-	draw_circle(center, radius * (0.24 + 0.07 * amount), Color("687e66").lerp(Color("fff3c9"), amount))
-	if amount > 0.5:
-		for dot in 7:
-			draw_circle(center + Vector2.from_angle(dot*2.4)*radius*0.18, radius*0.035, Color("d49648"))
-		draw_circle(center+Vector2(-radius*0.12,-radius*0.14),radius*0.065,Color("ffffff"))
+		Art.draw_icon(self,center,radius*(0.45+amount*0.95),[1,0,2,3,4][variant%5],amount)
 	else:
-		# A closed coloured bud is recognisable before it receives light.
-		draw_set_transform(center, -0.15, Vector2(0.7,1))
-		draw_circle(Vector2.ZERO, radius*0.39, color.darkened(0.28))
-		draw_arc(Vector2.ZERO,radius*0.27,-PI*0.8,-PI*0.2,12,color.lightened(0.3),1.5,true)
-		draw_set_transform(Vector2.ZERO)
+		draw_circle(center,radius*0.3,[Color("d7a637"),Color("d95c82"),Color("8967cc"),Color("269bb3"),Color("d98740")][variant%5])
 
 func _draw() -> void:
 	var rect := field_rect()

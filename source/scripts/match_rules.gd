@@ -11,12 +11,102 @@ var moves := 0
 var rng_state := 1
 var frames: Array = []
 var record_frames := true
+var rules_version := 2
+var obstacles: Array = []
+var layers: Array = []
+var tools_left: Array = [1,1,1,1]
+var starter_used := false
+var pending_effects: Array = []
+
+func target_cell(exclude: Array = []) -> int:
+	var best := -1
+	var result := 0
+	for i in n*n:
+		var score:=int(layers[i])*35+int(dew[i])*20+(5 if int(collected[int(cells[i])])<int(level.targets[int(cells[i])]) else 0)
+		if i not in exclude and score>best: best=score; result=i
+	return result
+
+func combine(a: int,b: int,pa: String,pb: String) -> Array:
+	var hit: Array=[a,b]
+	powers[a]=""; powers[b]=""
+	if pa=="rainbow" and pb=="rainbow":
+		hit=range(n*n)
+		pending_effects.append({"at":b,"power":"rainbow","target":b})
+	elif pa=="rainbow" or pb=="rainbow":
+		var other:=pb if pa=="rainbow" else pa
+		var color:=0
+		for c in colors:
+			if cells.count(c)>cells.count(color): color=c
+		for i in n*n:
+			if int(cells[i])==color and not blocked(i): powers[i]=other; hit.append(i)
+	elif pa=="bee" or pb=="bee":
+		var other:=pb if pa=="bee" else pa
+		for i in n*n:
+			if adjacent(a,i) or adjacent(b,i): hit.append(i)
+		var targets: Array=hit.duplicate()
+		for k in (3 if other=="bee" else 1):
+			var target:=target_cell(targets); targets.append(target)
+			pending_effects.append({"at":b,"power":"bee","target":target})
+			if other=="bee": hit.append(target)
+			else:
+				hit.append_array(footprint(target,other))
+				pending_effects.append({"at":target,"power":other,"target":target})
+	elif pa=="burst" and pb=="burst":
+		for i in n*n:
+			if absi(i%n-b%n)<=4 and absi(i/n-b/n)<=4: hit.append(i)
+		pending_effects.append({"at":b,"power":"burst","target":b})
+	elif pa=="burst" or pb=="burst":
+		for i in n*n:
+			if absi(i%n-b%n)<=1 or absi(i/n-b/n)<=1: hit.append(i)
+		for d in [-1,0,1]:
+			if b/n+d>=0 and b/n+d<n: pending_effects.append({"at":b+d*n,"power":"row","target":b})
+			if b%n+d>=0 and b%n+d<n: pending_effects.append({"at":b+d,"power":"column","target":b})
+	else:
+		hit.append_array(footprint(b,"row")); hit.append_array(footprint(b,"column"))
+		pending_effects.append({"at":b,"power":"row","target":b})
+		pending_effects.append({"at":b,"power":"column","target":b})
+	return hit
+
+func use_tool(kind: int,index: int) -> bool:
+	frames.clear()
+	if won() or kind<0 or kind>3 or int(tools_left[kind])<=0 or index<0 or index>=n*n: return false
+	tools_left[kind]=int(tools_left[kind])-1
+	if kind==3:
+		# Shuffle flowers while leaving obstacles and existing power-ups in place.
+		fresh_board(); frame("shuffle")
+	else:
+		var hit: Array=[index] if kind==0 else footprint(index,"row" if kind==1 else "column")
+		clear_group(hit,{},-1,true); fall(); resolve()
+	if not won() and legal_actions().is_empty(): fresh_board(); frame("shuffle")
+	frame("settled")
+	return true
+
+func start_booster(kind: String) -> bool:
+	if starter_used or moves!=int(level.moves) or won() or kind not in ["row","burst","rainbow"]: return false
+	for i in n*n:
+		if movable(i) and powers[i]=="":
+			powers[i]=kind; starter_used=true; return true
+	return false
+
+func blocked(i: int) -> bool:
+	return not layers.is_empty() and int(layers[i])>0 and int(obstacles[i])>=2
+
+func movable(i: int) -> bool:
+	return layers.is_empty() or int(layers[i])==0
+
+func match_color(i: int) -> int:
+	return -100-i if blocked(i) else int(cells[i])
+
 
 func rand_int(limit: int) -> int:
 	rng_state = (rng_state * 48271) % 2147483647
 	return rng_state % limit
 
 func setup(data: Dictionary, saved: Dictionary = {}) -> void:
+	rules_version=int(saved.get("rules_version",2 if saved.is_empty() else 1))
+	if rules_version==1:
+		var legacy=JSON.parse_string(FileAccess.get_file_as_string("res://match_levels/legacy-levels.json"))
+		data=legacy[int(data.id)-1]
 	level = data.duplicate(true)
 	n = int(data.size)
 	colors = int(data.colors)
@@ -28,6 +118,11 @@ func setup(data: Dictionary, saved: Dictionary = {}) -> void:
 	powers.fill("")
 	dew = data.dew.duplicate()
 	for i in dew.size(): dew[i] = int(dew[i])
+	obstacles=data.get("obstacles",[]).duplicate(); layers=data.get("layers",[]).duplicate()
+	if obstacles.is_empty(): obstacles.resize(n*n); obstacles.fill(0); layers.resize(n*n); layers.fill(0)
+	for i in n*n:
+		obstacles[i]=int(obstacles[i]); layers[i]=int(layers[i])
+	tools_left=[1,1,1,1]; starter_used=false
 	fresh_board()
 	if valid_save(saved):
 		cells = saved.cells.duplicate()
@@ -36,7 +131,10 @@ func setup(data: Dictionary, saved: Dictionary = {}) -> void:
 		collected = saved.collected.duplicate()
 		moves = int(saved.moves)
 		rng_state = int(saved.rng)
-		for arr in [cells,dew,collected]:
+		layers=saved.get("layers",layers).duplicate()
+		tools_left=saved.get("tools_left",tools_left).duplicate()
+		starter_used=saved.get("starter_used",false)
+		for arr in [cells,dew,collected,layers,tools_left]:
 			for i in arr.size(): arr[i] = int(arr[i])
 	frames.clear()
 
@@ -53,10 +151,19 @@ func valid_save(saved: Dictionary) -> bool:
 		if not (typeof(saved.dew[i]) in [TYPE_INT,TYPE_FLOAT]) or float(saved.dew[i]) != int(saved.dew[i]) or int(saved.dew[i]) < 0 or int(saved.dew[i]) > int(level.dew[i]): return false
 	for value in saved.collected:
 		if not (typeof(value) in [TYPE_INT,TYPE_FLOAT]) or float(value) != int(value) or int(value) < 0: return false
+	if saved.has("layers"):
+		if not saved.layers is Array or saved.layers.size()!=n*n: return false
+		for i in n*n:
+			if not typeof(saved.layers[i]) in [TYPE_INT,TYPE_FLOAT] or float(saved.layers[i])!=int(saved.layers[i]) or int(saved.layers[i])<0 or int(saved.layers[i])>int(level.get("layers",layers)[i]): return false
+	if saved.has("tools_left"):
+		if not saved.tools_left is Array or saved.tools_left.size()!=4: return false
+		for value in saved.tools_left:
+			if not typeof(value) in [TYPE_INT,TYPE_FLOAT] or float(value)!=int(value) or int(value) not in [0,1]: return false
+	if saved.has("starter_used") and not saved.starter_used is bool: return false
 	return true
 
 func snapshot() -> Dictionary:
-	return {"cells":cells.duplicate(),"powers":powers.duplicate(),"dew":dew.duplicate(),"collected":collected.duplicate(),"moves":moves,"rng":str(rng_state)}
+	return {"rules_version":rules_version,"layers":layers.duplicate(),"tools_left":tools_left.duplicate(),"starter_used":starter_used,"cells":cells.duplicate(),"powers":powers.duplicate(),"dew":dew.duplicate(),"collected":collected.duplicate(),"moves":moves,"rng":str(rng_state)}
 
 func frame(kind: String, extra: Dictionary = {}) -> void:
 	if not record_frames: return
@@ -96,14 +203,14 @@ func groups() -> Array:
 			var run: Array = []
 			for step in n+1:
 				var i := line*n+step if axis == 0 else step*n+line
-				if step == n or (not run.is_empty() and cells[i] != cells[run[0]]):
+				if step == n or (not run.is_empty() and match_color(i) != match_color(run[0])):
 					if run.size() >= 3: parts.append(run)
 					run = []
-				if step < n and int(cells[i]) >= 0: run.append(i)
+				if step < n and int(cells[i]) >= 0 and not blocked(i): run.append(i)
 	for y in n-1:
 		for x in n-1:
 			var i := y*n+x
-			if int(cells[i]) >= 0 and cells[i] == cells[i+1] and cells[i] == cells[i+n] and cells[i] == cells[i+n+1]:
+			if not blocked(i) and int(cells[i]) >= 0 and match_color(i) == match_color(i+1) and match_color(i) == match_color(i+n) and match_color(i) == match_color(i+n+1):
 				parts.append([i,i+1,i+n,i+n+1])
 	var merged: Array = []
 	for part in parts:
@@ -146,7 +253,7 @@ func legal_actions() -> Array:
 	for a in n*n:
 		if powers[a] != "": actions.append([a,-1])
 		for b in [a+1,a+n]:
-			if not adjacent(a,b): continue
+			if not adjacent(a,b) or not movable(a) or not movable(b): continue
 			if powers[a] != "" or powers[b] != "":
 				actions.append([a,b]); continue
 			swap_cells(a,b)
@@ -156,6 +263,7 @@ func legal_actions() -> Array:
 	return actions
 
 func has_match_at(i: int) -> bool:
+	if blocked(i): return false
 	var color: int = int(cells[i])
 	for axis in 2:
 		var count := 1
@@ -163,7 +271,7 @@ func has_match_at(i: int) -> bool:
 			var j := i
 			for distance in 2:
 				var next: int = j + direction*(1 if axis == 0 else n)
-				if next < 0 or next >= n*n or (axis == 0 and next/n != i/n) or cells[next] != color: break
+				if next < 0 or next >= n*n or (axis == 0 and next/n != i/n) or match_color(next) != color: break
 				count += 1; j = next
 		if count >= 3: return true
 	for dx in [-1,0]:
@@ -172,10 +280,12 @@ func has_match_at(i: int) -> bool:
 			var y: int = i/n+dy
 			if x < 0 or y < 0 or x >= n-1 or y >= n-1: continue
 			var p := y*n+x
-			if cells[p] == color and cells[p+1] == color and cells[p+n] == color and cells[p+n+1] == color: return true
+			if match_color(p) == color and match_color(p+1) == color and match_color(p+n) == color and match_color(p+n+1) == color: return true
 	return false
 
 func won() -> bool:
+	for hp in layers:
+		if int(hp)>0: return false
 	for c in 6:
 		if int(collected[c]) < int(level.targets[c]): return false
 	for d in dew:
@@ -194,7 +304,7 @@ func footprint(index: int, kind: String, color: int = -1) -> Array:
 		var target := 0
 		var best := -1
 		for i in n*n:
-			var score := int(dew[i])*20 + (5 if int(collected[int(cells[i])]) < int(level.targets[int(cells[i])]) else 0)
+			var score := int(layers[i])*35 + int(dew[i])*20 + (5 if int(collected[int(cells[i])]) < int(level.targets[int(cells[i])]) else 0)
 			if score > best and i not in hit: best = score; target = i
 		hit.append(target)
 	else:
@@ -210,13 +320,14 @@ func best_color() -> int:
 		if score > best: best = score; choice = c
 	return choice
 
-func clear_group(initial: Array, creates: Dictionary = {}, rainbow_color: int = -1) -> void:
+func clear_group(initial: Array, creates: Dictionary = {}, rainbow_color: int = -1, forced_power: bool = false) -> void:
 	var hit: Array = []
 	for i in initial:
 		if i not in hit: hit.append(i)
 	var cursor := 0
 	var activated: Array = []
-	var effects: Array = []
+	var effects: Array = pending_effects.duplicate(true)
+	pending_effects.clear()
 	while cursor < hit.size():
 		var i: int = hit[cursor]
 		cursor += 1
@@ -226,8 +337,24 @@ func clear_group(initial: Array, creates: Dictionary = {}, rainbow_color: int = 
 			effects.append({"at":i,"power":powers[i],"target":area.back()})
 			for j in area:
 				if j not in hit: hit.append(j)
-	frame("clear", {"hit":hit.duplicate(),"activated":activated,"effects":effects})
+	var flower_hits: Array=[]
+	var damage: Array=[]
 	for i in hit:
+		if not blocked(i): flower_hits.append(i)
+	for i in n*n:
+		if int(layers[i])<=0: continue
+		var powered:=forced_power and i in hit
+		for j in activated:
+			if i in footprint(j,powers[j],rainbow_color): powered=true
+		var touches:=false
+		for j in flower_hits:
+			if adjacent(i,j) and (int(obstacles[i])!=4 or cells[j]==cells[i]): touches=true
+		var direct: bool=i in flower_hits
+		if powered or (int(obstacles[i])!=3 and (touches or direct)):
+			damage.append(i)
+	frame("clear", {"hit":flower_hits.duplicate(),"activated":activated,"effects":effects,"damage":damage})
+	for i in damage: layers[i]=maxi(0,int(layers[i])-1)
+	for i in flower_hits:
 		collected[int(cells[i])] += 1
 		dew[i] = maxi(0,int(dew[i])-1)
 		cells[i] = -1
@@ -243,6 +370,12 @@ func fall() -> void:
 		var dest := n-1
 		for y in range(n-1,-1,-1):
 			var i := y*n+x
+			if blocked(i):
+				for row in range(dest,y,-1):
+					var empty:=row*n+x
+					cells[empty]=rand_int(colors); powers[empty]=""; from[empty]=(y-1)*n+x
+				from[i]=i; dest=y-1
+				continue
 			if int(cells[i]) >= 0:
 				var j := dest*n+x
 				cells[j] = cells[i]; powers[j] = powers[i]; from[j] = i
@@ -282,7 +415,7 @@ func play(a: int, b: int = -1) -> bool:
 		moves -= 1
 		clear_group([a]); fall(); resolve()
 	else:
-		if not adjacent(a,b): return false
+		if not adjacent(a,b) or not movable(a) or not movable(b): return false
 		swap_cells(a,b)
 		frame("swap", {"a":a,"b":b})
 		var pa: String = powers[a]
@@ -295,7 +428,10 @@ func play(a: int, b: int = -1) -> bool:
 		if pa != "" or pb != "":
 			var hit: Array = [a,b]
 			var color := int(cells[b]) if pa == "rainbow" else int(cells[a]) if pb == "rainbow" else -1
-			if pa != "" and pb != "":
+			if pa != "" and pb != "" and rules_version>=2:
+				hit=combine(a,b,pa,pb)
+				color=-1
+			elif pa != "" and pb != "":
 				if pa == "rainbow" and pb == "rainbow": hit = range(n*n)
 				elif pa == "rainbow" or pb == "rainbow":
 					var other := pb if pa == "rainbow" else pa
@@ -308,7 +444,7 @@ func play(a: int, b: int = -1) -> bool:
 						if absi(i%n-b%n) <= 1 or absi(i/n-b/n) <= 1: hit.append(i)
 				else:
 					hit.append_array(footprint(a,"burst")); hit.append_array(footprint(b,"burst"))
-			clear_group(hit,{},color); fall(); resolve()
+			clear_group(hit,{},color,true); fall(); resolve()
 		else: resolve([b,a])
 	if not won() and moves > 0 and legal_actions().is_empty():
 		fresh_board()
@@ -333,7 +469,9 @@ func suggest() -> Array:
 		var unique: Dictionary = {}
 		for i in hit: unique[i] = true
 		for i in unique:
-			score += 1 + int(dew[i])*7
+			score += 1 + int(dew[i])*7 + int(layers[i])*25
+			for neighbour in [i-1,i+1,i-n,i+n]:
+				if adjacent(i,neighbour): score+=int(layers[neighbour])*9
 			if int(collected[int(cells[i])]) < int(level.targets[int(cells[i])]): score += 4
 		if b >= 0: swap_cells(a,b)
 		if score > best: best = score; choice = action

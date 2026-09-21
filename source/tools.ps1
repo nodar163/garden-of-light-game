@@ -1,10 +1,12 @@
-param([ValidateSet('run','test','ui-test','match-test','match-ui-test','author-match','import','apk','editor','windows','web')][string]$Action = 'run')
+param([ValidateSet('run','test','ui-test','match-test','match-ui-test','author-match','match-extended','render-bench','import','apk','editor','windows','web')][string]$Action = 'run')
 $ErrorActionPreference = 'Stop'
 Set-Location $PSScriptRoot
 $engine = Get-ChildItem -LiteralPath "$PSScriptRoot/.tools/godot" -Filter '*console.exe' -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
 if (-not $engine) { $engine = $env:GODOT_BIN }
 if (-not $engine -or -not (Test-Path -LiteralPath $engine)) { throw 'Install Godot 4.7.2 in .tools/godot or set GODOT_BIN to the executable.' }
 switch ($Action) {
+  'match-extended' { & $engine --headless --path $PSScriptRoot --script res://tests/match_extended.gd }
+  'render-bench' { & $engine --path $PSScriptRoot --disable-vsync --script res://tests/render_benchmark.gd }
   'match-test' { & $engine --headless --path $PSScriptRoot --script res://tests/match.gd }
   'match-ui-test' { New-Item -ItemType Directory -Force artifacts | Out-Null; & $engine --path $PSScriptRoot --script res://tests/match_ui.gd }
   'author-match' { & $engine --headless --path $PSScriptRoot --script res://tests/author_match.gd }
