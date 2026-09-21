@@ -36,5 +36,10 @@ wasm = root / 'index.wasm'
 (root / 'index.wasm.gz').write_bytes(gzip.compress(wasm.read_bytes(), mtime=0))
 wasm.unlink()
 worker = root / 'index.service.worker.js'
-worker.write_text(worker.read_text(encoding='utf-8').replace('"index.wasm"', '"index.wasm.gz"'), encoding='utf-8')
+worker_text = worker.read_text(encoding='utf-8').replace('"index.wasm"', '"index.wasm.gz"')
+# Activate a completed update even if another game tab remains open. Saved
+# progress lives in IndexedDB, separately from this disposable asset cache.
+worker_text = worker_text.replace('cache.addAll(CACHED_FILES)))',
+                                  'cache.addAll(CACHED_FILES)).then(() => self.skipWaiting()))')
+worker.write_text(worker_text, encoding='utf-8')
 print('Web export ready:', root)
