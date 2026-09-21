@@ -1,0 +1,37 @@
+{
+  "id": 4,
+  "size": 3,
+  "cells": [
+    "corner",
+    "straight",
+    "corner",
+    "straight",
+    "empty",
+    "straight",
+    "source",
+    "empty",
+    "plant"
+  ],
+  "start": [
+    0,
+    2,
+    0,
+    2,
+    0,
+    3,
+    0,
+    0,
+    0
+  ],
+  "solution": [
+    1,
+    1,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0
+  ]
+}

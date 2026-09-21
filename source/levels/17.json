@@ -1,0 +1,63 @@
+{
+  "id": 17,
+  "size": 4,
+  "cells": [
+    "corner",
+    "tee",
+    "straight",
+    "corner",
+    "straight",
+    "corner",
+    "corner",
+    "plant",
+    "straight",
+    "empty",
+    "source",
+    "empty",
+    "corner",
+    "plant",
+    "empty",
+    "empty"
+  ],
+  "start": [
+    2,
+    2,
+    2,
+    2,
+    0,
+    3,
+    3,
+    0,
+    1,
+    0,
+    0,
+    0,
+    3,
+    3,
+    0,
+    0
+  ],
+  "solution": [
+    1,
+    2,
+    1,
+    2,
+    0,
+    0,
+    2,
+    0,
+    0,
+    0,
+    0,
+    0,
+    0,
+    3,
+    0,
+    0
+  ],
+  "design": {
+    "plants": 2,
+    "network_cells": 12,
+    "scrambled": 6
+  }
+}
