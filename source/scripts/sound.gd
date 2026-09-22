@@ -20,10 +20,7 @@ func _ready() -> void:
 	music.finished.connect(func(): music.play())
 	effect.stream = load("res://assets/chime.wav")
 	effect.volume_db = -12
-	nature.stream = load("res://assets/nature.wav")
-	nature.volume_db = -5
-	nature.finished.connect(func():
-		if home and music_enabled: nature.play())
+	# Kept as an inactive player for existing pause/settings callers. No nature audio.
 	for key in ["swap","match","power","win"]:
 		match_streams[key]=load("res://assets/"+("bloom" if key=="match" else key)+".wav")
 
@@ -40,20 +37,21 @@ func configure(settings: Dictionary) -> void:
 func set_home(value: bool) -> void:
 	home=value
 	if nature == null: return
-	if home and music_enabled:
-		if not nature.playing: nature.play()
-	else: nature.stop()
-	music.volume_db = -14 if home else -11
+	nature.stop()
+	music.volume_db = -11
 
 func play_match(kind: String) -> void:
 	if enabled and match_streams.has(kind):
+		effect.volume_db=-18 if kind=="swap" else -12
 		effect.stream=match_streams[kind]
 		effect.pitch_scale=1.0
 		effect.play()
 
 func chime() -> void:
 	if enabled:
-		effect.stream=load("res://assets/chime.wav")
+		effect.stream=load("res://assets/soft-turn.wav")
+		effect.volume_db=-23
+		effect.pitch_scale=0.95
 		effect.play()
 
 func _exit_tree() -> void:

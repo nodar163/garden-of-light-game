@@ -1,4 +1,5 @@
 extends RefCounted
+const Garden=preload("res://scripts/garden_rules.gd")
 var path: String
 var data: Dictionary
 var recovered := false
@@ -9,11 +10,12 @@ func _init(location: String = "user://progress.json") -> void:
 	data = defaults()
 
 static func defaults() -> Dictionary:
-	return {"version":1, "completed":[], "current":1, "boards":{}, "match3":{"current":1,"completed":[],"boards":{}}, "settings":{"language":"ru", "music":true, "sound":true, "reduce_motion":false}}
+	return {"version":1, "completed":[], "current":1, "boards":{}, "match3":{"current":1,"completed":[],"boards":{}}, "garden":Garden.defaults(), "settings":{"language":"ru", "music":true, "sound":true, "reduce_motion":false}}
 
 static func valid(value: Variant) -> bool:
 	if not value is Dictionary or value.get("version") != 1:
 		return false
+	if value.has("garden") and not Garden.valid(value.garden): return false
 	if not value.get("completed") is Array or not value.get("boards") is Dictionary or not value.get("settings") is Dictionary:
 		return false
 	if not typeof(value.get("current")) in [TYPE_INT, TYPE_FLOAT] or float(value.current) != int(value.current) or int(value.current) < 1:
@@ -68,6 +70,7 @@ func load_data() -> void:
 			for key in data.boards:
 				for i in data.boards[key].size():
 					data.boards[key][i] = int(data.boards[key][i])
+			Garden.sync(data)
 			recovered = candidate != path
 			return
 	recovered = FileAccess.file_exists(path)
@@ -107,4 +110,12 @@ func complete(id: int) -> bool:
 	if id in data.completed:
 		return false
 	data.completed.append(id)
+	Garden.sync(data)
 	return true
+
+func garden_transaction(action: Callable) -> bool:
+	var previous: Dictionary=data.garden.duplicate(true)
+	if not action.call(data.garden): return false
+	if write(): return true
+	data.garden=previous
+	return false

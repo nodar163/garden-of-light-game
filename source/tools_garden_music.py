@@ -27,3 +27,14 @@ for i in range(RATE*DURATION):
 with wave.open(str(Path(__file__).parent/'assets/garden-music.wav'),'wb') as f:
     f.setparams((2,2,RATE,0,'NONE','not compressed')); f.writeframes(data)
 print(f'Original 32 s stereo garden score; peak {peak:.3f}; no clipping.')
+
+# A rounded, low wooden/mallet note for turning light paths. Gentle attack,
+# no sharp noise component, and additional attenuation in sound.gd.
+turn=bytearray()
+for i in range(int(RATE*.24)):
+    t=i/RATE
+    envelope=min(1,t/.025)*math.exp(-t*18)*min(1,(.24-t)/.04)
+    value=.17*envelope*(math.sin(math.tau*440*t)+.08*math.sin(math.tau*660*t))
+    turn.extend(struct.pack('<h',round(value*32767)))
+with wave.open(str(Path(__file__).parent/'assets/soft-turn.wav'),'wb') as f:
+    f.setparams((1,2,RATE,0,'NONE','not compressed')); f.writeframes(turn)

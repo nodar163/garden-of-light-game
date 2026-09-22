@@ -6,6 +6,14 @@ const Sound = preload("res://scripts/sound.gd")
 const MatchRules = preload("res://scripts/match_rules.gd")
 const MatchBoard = preload("res://scripts/match_board.gd")
 const MatchGoals = preload("res://scripts/match_goals.gd")
+const GardenRules=preload("res://scripts/garden_rules.gd")
+const GardenMap=preload("res://scripts/garden_map.gd")
+const GardenUI=preload("res://scripts/garden_ui.gd")
+var garden_ui: RefCounted
+var light_rewarded:=false
+var match_rewarded:=false
+var reward_garden_button: Button
+var match_garden_button: Button
 var match_model = MatchRules.new()
 var match_levels: Array = []
 var match_group := -1
@@ -70,9 +78,11 @@ func _ready() -> void:
 	sound = Sound.new()
 	add_child(sound)
 	sound.configure(store.data.settings)
+	garden_ui=GardenUI.new(self)
 	get_tree().auto_accept_quit = false
 	resized.connect(_layout)
-	show_home()
+	if store.data.garden.intro_done: show_home()
+	else: garden_ui.intro()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
 			open_level(4)
@@ -188,13 +198,10 @@ func header(text_value: String) -> void:
 	row.add_child(title)
 
 func garden_view(height: int) -> void:
-	var art = Board.new()
-	art.decorative = true
-	art.garden_count = store.data.completed.size()
-	art.garden_offset = garden_section * 50
-	art.completed = store.data.completed
-	art.region = garden_section * 2
-	art.reduced = store.data.settings.reduce_motion
+	GardenRules.sync(store.data)
+	var art=GardenMap.new()
+	art.garden=store.data.garden
+	art.interactive=false
 	art.custom_minimum_size.y = height
 	art.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_child(art)
@@ -203,7 +210,7 @@ func show_home() -> void:
 	clear_page("home")
 	label(words("ТИХИЕ МГНОВЕНИЯ", "A QUIET MOMENT"), 18, MUTED)
 	label(words("Сад света", "Garden of Light"), 62)
-	label(words("Немного света. Немного тишины.", "A little light. A little stillness."), 24, MUTED)
+	label(words("Вернём саду Джека жизнь", "Bring Jack's garden back to life"), 24, MUTED)
 	garden_view(420)
 	if not error_message.is_empty():
 		label(error_message, 20)
@@ -214,10 +221,10 @@ func show_home() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 14)
 	root_box.add_child(row)
-	button(words("Мой сад", "My garden"), show_garden, row)
+	button(words("Сад Джека · ", "Jack's garden · ")+str(store.data.garden.coins), show_garden, row)
 	button(words("Настройки", "Settings"), show_settings, row)
 	label(words("2 режима · 500 полянок", "2 modes · 500 clearings"), 19, MUTED)
-	label(words("Звуки природы включаются после первого касания.", "Nature sounds begin after your first tap."), 16, MUTED)
+	label(words("Новый уровень → 25 садовых монет. Музыка — после касания.", "New level → 25 garden coins. Tap to enable music."), 16, MUTED)
 	if store.recovered:
 		label(words("Сохранение восстановлено. Проверьте прогресс.", "Save recovered. Please check your progress."), 18)
 
@@ -233,7 +240,7 @@ func show_levels() -> void:
 	clear_page("levels")
 	header(words("Полянки", "Clearings"))
 	label(words("Путешествие по саду", "A garden journey"), 40)
-	label(words("Каждое решение — новый цветок в саду.", "Every solution brings a new flower."), 23, MUTED)
+	label(words("Каждый новый уровень — 25 монет для сада.", "Every new level earns 25 garden coins."), 23, MUTED)
 	if level_group < 0:
 		level_group = (int(store.data.current)-1)/25
 	label(words(REGION_RU[level_group], REGION_EN[level_group]), 28)
@@ -267,6 +274,7 @@ func select_group(direction: int) -> void:
 	show_levels()
 
 func open_level(id: int) -> void:
+	light_rewarded=false
 	if id < 1 or id > levels.size():
 		return
 	store.data.current = id
@@ -296,16 +304,15 @@ func open_level(id: int) -> void:
 	button(words("Заново", "Restart"), restart, row)
 	hint_button = button(words("Подсказка", "Hint"), hint, row)
 	next_button = button("", advance, null, true)
+	reward_garden_button=button(words("Улучшить сад", "Improve the garden"),show_garden)
 	notice = label("", 18, MUTED)
 	refresh()
 	persist()
 
 func on_tile(index: int) -> void:
-	var before: int = puzzle.lit().size()
 	if puzzle.turn(index):
 		selected_hint = -1
-		if puzzle.lit().size() > before:
-			sound.chime()
+		sound.chime()
 		refresh()
 		persist()
 
@@ -335,8 +342,8 @@ func refresh() -> void:
 	var victory: bool = puzzle.won()
 	var id: int = int(puzzle.level.id)
 	if victory:
-		store.complete(id)
-		status.text = words("Полянка ожила. Спасибо вам.", "This clearing is alive. Thank you.")
+		if store.complete(id): light_rewarded=true
+		status.text=words("Полянка ожила!", "The clearing is alive!")+(words(" +25 садовых монет."," +25 garden coins.") if light_rewarded else words(" Эта награда уже получена."," This reward was already collected."))
 	else:
 		var count := 0
 		for i in puzzle.lit():
@@ -348,6 +355,8 @@ func refresh() -> void:
 	hint_button.disabled = victory
 	hint_button.text = words("Применить", "Apply") if selected_hint >= 0 else words("Подсказка", "Hint")
 	next_button.visible = victory
+	reward_garden_button.visible=victory
+	reward_garden_button.text=words("Улучшить сад · ","Improve garden · ")+str(store.data.garden.coins)+words(" монет"," coins")
 	next_button.text = words("В мой сад", "Visit my garden") if id == levels.size() else words("Следующая полянка  ›", "Next clearing  ›")
 	notice.text = words("Один возможный путь. Нажмите «Применить».", "One possible solution. Tap Apply.") if selected_hint >= 0 else words("Без таймера. В вашем темпе.", "No timer. At your own pace.")
 
@@ -367,31 +376,14 @@ func persist() -> void:
 			notice.text = words("Не удалось сохранить прогресс. Проверьте свободное место.", "Could not save. Please check free storage.")
 
 func show_garden() -> void:
-	clear_page("garden")
-	header(words("Мой сад", "My garden"))
-	label(words("Здесь остаётся ваш свет", "Your light stays here"), 40)
-	label(words("Каждый цветок — маленькое открытие.", "Every flower is a little discovery."), 23, MUTED)
-	garden_view(450)
-	var navigation := HBoxContainer.new()
-	root_box.add_child(navigation)
-	button("‹", change_garden.bind(-1), navigation).disabled = garden_section == 0
-	button(words("Уголок ", "Corner ") + "%d / 5" % (garden_section+1), func(): pass, navigation).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button("›", change_garden.bind(1), navigation).disabled = garden_section == 4
-	label(words("Вырастили цветов: ", "Flowers grown: ") + "%d / %d" % [store.data.completed.size(), LEVEL_COUNT], 28)
-	if store.data.completed.size() == levels.size():
-		label(words("Все полянки ожили. Спасибо за игру!", "Every clearing is alive. Thank you for playing!"), 24)
-	button(words("К полянкам", "Back to the clearings"), show_levels, null, true)
-
-func change_garden(direction: int) -> void:
-	garden_section = clampi(garden_section + direction, 0, 4)
-	show_garden()
+	garden_ui.show()
 
 func show_settings() -> void:
 	clear_page("settings")
 	header(words("Настройки", "Settings"))
 	label(words("Как вам спокойно", "Make yourself at home"), 40)
 	spacer()
-	for setting in [["music", words("Музыка и природа", "Music and nature")], ["sound", words("Звуки", "Sounds")], ["reduce_motion", words("Меньше анимаций", "Reduced motion")]]:
+	for setting in [["music", words("Музыка", "Music")], ["sound", words("Звуки", "Sounds")], ["reduce_motion", words("Меньше анимаций", "Reduced motion")]]:
 		var key: String = setting[0]
 		button(setting[1] + "  ·  " + (words("Вкл", "On") if store.data.settings[key] else words("Выкл", "Off")), toggle.bind(key))
 	button("Язык / Language  ·  " + ("Русский" if store.data.settings.language == "ru" else "English"), func():
@@ -401,6 +393,7 @@ func show_settings() -> void:
 	spacer()
 	label(words("Игра не собирает данные и не подключается к сети. Прогресс хранится только на устройстве.", "No data collection or network connection. Progress stays on this device."), 22, MUTED)
 	label(words("При удалении приложения прогресс может быть потерян.", "Uninstalling the app may remove your progress."), 18, MUTED)
+	button(words("История Джека", "Jack's story"),func(): garden_ui.replay=true; garden_ui.intro(0))
 	button(words("Лицензии", "Licenses"), show_licenses)
 
 func toggle(key: String) -> void:
@@ -493,6 +486,7 @@ func show_match_help() -> void:
 	button(words("К букетам", "Back to bouquets"),show_match_levels,null,true)
 
 func open_match(id: int) -> void:
+	match_rewarded=false
 	if id < 1 or id > match_levels.size() or id > match_unlocked(): return
 	store.data.match3.current=id
 	match_model.setup(match_levels[id-1],store.data.match3.boards.get(str(id),{}))
@@ -537,6 +531,7 @@ func open_match(id: int) -> void:
 	match_restart_button=button(words("Заново", "Retry"),restart_match,row)
 	button(words("Уровни", "Levels"),show_match_levels,row)
 	match_next=button(words("Следующий букет  ›", "Next bouquet  ›"),advance_match,null,true)
+	match_garden_button=button(words("Улучшить сад", "Improve the garden"),show_garden)
 	refresh_match()
 	save_match()
 
@@ -550,10 +545,12 @@ func refresh_match() -> void:
 	match_moves.text=words("Ходов осталось: ","Moves left: ")+str(match_model.moves)
 	var victory: bool=match_model.won()
 	match_next.visible=victory
+	match_garden_button.visible=victory
+	match_garden_button.text=words("Улучшить сад · ","Improve garden · ")+str(store.data.garden.coins)+words(" монет"," coins")
 	match_next.text=words("Все букеты собраны!", "All bouquets complete!") if int(match_model.level.id)==250 else words("Следующий букет  ›", "Next bouquet  ›")
 	match_hint_button.disabled=match_view.busy or victory or match_model.moves<=0
 	match_restart_button.disabled=match_view.busy
-	if victory: match_message.text=words("Прекрасный букет! Полянка расцвела.","A lovely bouquet! The clearing is in bloom.")
+	if victory: match_message.text=words("Прекрасный букет!", "A lovely bouquet!")+(words(" +25 садовых монет."," +25 garden coins.") if match_rewarded else words(" Награда уже получена."," Reward already collected."))
 	elif match_model.moves<=0: match_message.text=words("Ходы закончились. Попробуйте ещё — это бесплатно.","Out of moves. Try again — every retry is free.")
 	elif int(match_model.level.id)<=3: match_message.text=words("Свайп или два касания: соедините 3 цветка одного вида.","Swipe or tap two neighbours to match 3 flowers.")
 	else: match_message.text=words("Собирайте букеты, соединяйте усилители.","Gather bouquets and combine power-ups.")
@@ -562,7 +559,9 @@ func save_match() -> void:
 	if match_model.level == null: return
 	var id: int=int(match_model.level.id)
 	store.data.match3.boards[str(id)]=match_model.snapshot()
-	if match_model.won() and id not in store.data.match3.completed: store.data.match3.completed.append(id)
+	if match_model.won() and id not in store.data.match3.completed:
+		store.data.match3.completed.append(id); match_rewarded=true
+	GardenRules.sync(store.data)
 	if not store.write():
 		push_error(store.last_error)
 		if page == "match": match_message.text=words("Не удалось сохранить. Проверьте свободное место.","Could not save. Check free storage.")

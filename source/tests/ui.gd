@@ -22,14 +22,15 @@ func capture(name_value: String) -> void:
 
 func run() -> void:
 	var game = Main.new()
-	game.store = Saves.new("user://ui-test-save.json")
+	game.store = Saves.new("user://ui-test-save-" + str(OS.get_process_id()) + ".json")
 	for suffix in ["", ".bak", ".tmp"]:
 		if FileAccess.file_exists(game.store.path + suffix):
 			DirAccess.remove_absolute(game.store.path + suffix)
 	game.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	root.add_child(game)
 	await process_frame
-	check(game.page == "home" and game.unlocked() == 1, "new player sees home and first level")
+	game.show_home()
+	check(game.page == "home" and game.unlocked() == 1, "home exposes first level")
 	await capture("home")
 	check(game.levels.size() == 250, "all 250 levels loaded")
 	for id in range(1,251):
@@ -71,8 +72,8 @@ func run() -> void:
 			await capture("bloom")
 	game.show_garden()
 	await capture("garden")
-	game.change_garden(4)
-	check(game.garden_section == 4, "fifth garden available")
+	game.garden_ui.map_view.overview()
+	check(game.store.data.garden.coins == 6300, "all 250 first completions award coins once")
 	await capture("garden-final")
 	game.show_levels()
 	game.select_group(9)
