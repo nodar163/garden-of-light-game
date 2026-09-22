@@ -606,6 +606,9 @@ func show_starter() -> void:
 	if starter_button.disabled: return
 	var menu:=PopupMenu.new()
 	add_child(menu)
+	menu.add_theme_font_size_override("font_size",32)
+	menu.add_theme_constant_override("v_separation",42)
+	menu.min_size=Vector2i(360,270)
 	for i in 3:
 		menu.add_item(words(["Луч","Бомба","Радуга"][i],["Rocket","Bomb","Rainbow"][i]),i)
 	menu.id_pressed.connect(func(i):
@@ -613,4 +616,4 @@ func show_starter() -> void:
 			match_view.shown=match_model.snapshot(); match_view.queue_redraw()
 			save_match(); refresh_match())
 	menu.popup_hide.connect(menu.queue_free)
-	menu.popup_centered(Vector2i(300,190))
+	menu.popup_centered(Vector2i(360,270))

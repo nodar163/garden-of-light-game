@@ -103,6 +103,7 @@ func rand_int(limit: int) -> int:
 	return rng_state % limit
 
 func setup(data: Dictionary, saved: Dictionary = {}) -> void:
+	pending_effects.clear()
 	rules_version=int(saved.get("rules_version",2 if saved.is_empty() else 1))
 	if rules_version==1:
 		var legacy=JSON.parse_string(FileAccess.get_file_as_string("res://match_levels/legacy-levels.json"))
