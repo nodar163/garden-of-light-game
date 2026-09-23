@@ -15,3 +15,5 @@
 - assets/garden-world.png, jack.png и garden-decor.png созданы встроенным imagegen для проекта. Описание изображений: JACK-GARDEN.md. soft-turn.wav синтезирован tools_garden_music.py без сторонних записей.
 
 - Новый garden-world.png и прозрачный garden-beds.png созданы встроенным imagegen 23 сентября 2026 для проекта. Точные промпты: GARDEN-REDESIGN-PROMPTS.md. Референсы и графика сторонних игр не копировались.
+
+- assets/ui-coin.svg, ui-settings.svg, ui-center.svg, ui-plus.svg, ui-minus.svg и ui-back.svg — собственные векторные значки интерфейса, не зависящие от шрифтов браузера.

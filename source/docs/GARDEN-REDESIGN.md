@@ -41,3 +41,5 @@
 Новые изображения созданы встроенным imagegen. Файлы: `assets/garden-world.png` (замена), `assets/garden-beds.png` (новый прозрачный атлас). Точные запросы: [GARDEN-REDESIGN-PROMPTS.md](GARDEN-REDESIGN-PROMPTS.md).
 
 Запуск: `./tools.ps1 run`. Проверки: `./tools.ps1 garden-test`, `./tools.ps1 garden-ui-test`. Дополнительный тест: Godot `--path . --script res://tests/garden_redesign.gd`. Снимки — `artifacts/redesign-*.png` и `artifacts/jack-*.png`.
+
+При проверке публичной Web-версии обнаружены отсутствующие символы значков в браузерном шрифте. Они заменены собственными SVG монеты, настроек, возврата и управления камерой. Повторные 51 проверка и Web-экспорт прошли без ошибок.

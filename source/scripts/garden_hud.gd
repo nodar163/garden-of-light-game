@@ -2,6 +2,10 @@ extends RefCounted
 ## Floating controls over the actual garden, shared by home and editing.
 const Map=preload("res://scripts/garden_map.gd")
 const JACK=preload("res://assets/jack.png")
+const COIN=preload("res://assets/ui-coin.svg")
+const SETTINGS=preload("res://assets/ui-settings.svg")
+const BACK=preload("res://assets/ui-back.svg")
+const ZOOM_ICONS=[preload("res://assets/ui-plus.svg"),preload("res://assets/ui-center.svg"),preload("res://assets/ui-minus.svg")]
 const INK=Color("244c42")
 const SOFT=Color("68816a")
 var game: Control
@@ -48,7 +52,7 @@ func _init(host: Control,screen: String) -> void:
 	var stack:=VBoxContainer.new(); stack.mouse_filter=Control.MOUSE_FILTER_IGNORE; stack.add_theme_constant_override("separation",16); margin.add_child(stack)
 	var top:=HBoxContainer.new(); top.mouse_filter=Control.MOUSE_FILTER_IGNORE; top.add_theme_constant_override("separation",12); stack.add_child(top)
 	if screen!="home":
-		var back: Button=game.button("‹",game.show_home,top); back.custom_minimum_size=Vector2(76,76); back.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; back.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; back.add_theme_font_size_override("font_size",40)
+		var back: Button=game.button("‹",game.show_home,top); back.custom_minimum_size=Vector2(76,76); back.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; back.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; back.add_theme_font_size_override("font_size",40); icon_button(back,BACK); back.tooltip_text=game.words("Главное меню","Main menu")
 	var brand:=VBoxContainer.new(); brand.mouse_filter=Control.MOUSE_FILTER_IGNORE; brand.size_flags_horizontal=Control.SIZE_EXPAND_FILL; top.add_child(brand)
 	var heading: String=game.words("САД СВЕТА","GARDEN OF LIGHT") if screen=="home" else game.words("РЕЖИМЫ","GAME MODES") if screen=="garden_modes" else game.words("ЛАВКА","FLOWER SHOP") if screen=="garden_shop" else game.words("МОЙ САД","MY GARDEN")
 	var name_label:=text(brand,heading,30,Color("fff9dd"))
@@ -56,8 +60,10 @@ func _init(host: Control,screen: String) -> void:
 	var subtitle:=text(brand,game.words("История Джека","Jack's story"),20,Color("fff9dd"))
 	subtitle.add_theme_color_override("font_outline_color",Color("234939")); subtitle.add_theme_constant_override("outline_size",5)
 	var money:=PanelContainer.new(); money.add_theme_stylebox_override("panel",plate(Color("fff0bd"),24)); money.custom_minimum_size=Vector2(142,76); money.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; top.add_child(money)
-	var balance:=text(money,"● "+str(game.store.data.garden.coins),28,Color("896019")); balance.autowrap_mode=TextServer.AUTOWRAP_OFF
-	var settings: Button=game.button("☼",game.show_settings,top); settings.tooltip_text=game.words("Настройки","Settings"); settings.custom_minimum_size=Vector2(76,76); settings.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; settings.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; settings.add_theme_font_size_override("font_size",36)
+	var wallet_row:=HBoxContainer.new(); wallet_row.add_theme_constant_override("separation",8); money.add_child(wallet_row)
+	var coin:=TextureRect.new(); coin.texture=COIN; coin.custom_minimum_size=Vector2(34,34); coin.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; coin.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; wallet_row.add_child(coin)
+	var balance:=text(wallet_row,str(game.store.data.garden.coins),28,Color("896019")); balance.autowrap_mode=TextServer.AUTOWRAP_OFF
+	var settings: Button=game.button("☼",game.show_settings,top); settings.tooltip_text=game.words("Настройки","Settings"); settings.custom_minimum_size=Vector2(76,76); settings.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; settings.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; settings.add_theme_font_size_override("font_size",36); icon_button(settings,SETTINGS)
 	var space:=Control.new(); space.mouse_filter=Control.MOUSE_FILTER_IGNORE; space.size_flags_vertical=Control.SIZE_EXPAND_FILL; stack.add_child(space)
 	var control_row:=HBoxContainer.new(); control_row.mouse_filter=Control.MOUSE_FILTER_IGNORE; stack.add_child(control_row)
 	var empty:=Control.new(); empty.mouse_filter=Control.MOUSE_FILTER_IGNORE; empty.size_flags_horizontal=Control.SIZE_EXPAND_FILL; control_row.add_child(empty)
@@ -65,6 +71,7 @@ func _init(host: Control,screen: String) -> void:
 	if screen=="garden":
 		for item in [["+",func(): map.zoom_by(1.3)],["⌖",func(): map.overview()],["−",func(): map.zoom_by(1/1.3)]]:
 			var b: Button=game.button(item[0],item[1],controls); b.custom_minimum_size=Vector2(76,76)
+			icon_button(b,ZOOM_ICONS[0 if item[0]=="+" else 1 if item[0]=="⌖" else 2])
 			b.tooltip_text=game.words("Центр сада","Garden centre") if item[0]=="⌖" else game.words("Масштаб","Zoom")
 	footer=VBoxContainer.new(); footer.add_theme_constant_override("separation",12); stack.add_child(footer)
 	content=card(footer); game.root_box=content
@@ -91,3 +98,8 @@ func nav(items: Array) -> void:
 		var b: Button=game.button(item[0],item[1],row)
 		b.custom_minimum_size.y=76; b.add_theme_font_size_override("font_size",23)
 
+
+static func icon_button(button: Button,texture: Texture2D) -> void:
+	button.text=""; button.icon=texture; button.expand_icon=true
+	button.icon_alignment=HORIZONTAL_ALIGNMENT_CENTER
+	button.add_theme_constant_override("icon_max_width",38)
