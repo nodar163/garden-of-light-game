@@ -122,12 +122,22 @@ static func bed_texture(index: int) -> AtlasTexture:
 	result.region=Rect2(Vector2(index%3,index/3)*unit,unit); result.filter_clip=true
 	return result
 
+func visible_area() -> int:
+	if selected>=0: return selected/6
+	var center:=camera-Vector2(0,(occluded_bottom-100)/2/zoom)
+	var nearest:=0
+	var distance_to_center:=INF
+	for slot in Rules.PLOT_COUNT:
+		var distance_value: float=(Rules.plot_position(slot)*WORLD).distance_squared_to(center)
+		if distance_value<distance_to_center: nearest=slot; distance_to_center=distance_value
+	return nearest/6
+
 func _draw() -> void:
 	if garden.is_empty(): return
 	draw_rect(Rect2(Vector2.ZERO,size),Color("254b32"))
 	draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
 	draw_texture_rect(BACKGROUND,Rect2(Vector2.ZERO,WORLD),false)
-	var active_zone: int=(selected if selected>=0 else Rules.next_empty(garden))/6
+	var active_zone: int=visible_area()
 	var order: Array=range(Rules.PLOT_COUNT)
 	order.sort_custom(func(a,b): return Rules.plot_position(a).y<Rules.plot_position(b).y)
 	for slot in order:

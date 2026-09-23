@@ -55,6 +55,7 @@ func run() -> void:
 	check(popup is PopupMenu and popup.item_count==5,"five named garden areas")
 	popup.id_pressed.emit(4); popup.hide(); await capture("pond-mobile")
 	check(game.garden_ui.map_view.focus_index==24,"area navigation focuses pond")
+	check(game.garden_ui.map_view.visible_area()==4,"empty-place markers follow the selected area")
 	check(game.store.data.garden.coins==coins,"navigation never spends coins")
 	game.store.data.settings.language="en"; game.show_home(); await capture("home-en"); layout_check()
 	game.garden_ui.modes(); await capture("modes-en"); layout_check()
