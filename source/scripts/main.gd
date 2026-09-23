@@ -119,6 +119,7 @@ func _layout() -> void:
 		if physical.y > 0:
 			top += int(safe.position.y * size.y / physical.y)
 			bottom += int((physical.y-safe.end.y) * size.y / physical.y)
+	if page in ["home","garden","garden_modes","garden_shop"]: edge=0; top=0; bottom=0
 	shell.add_theme_constant_override("margin_left", edge)
 	shell.add_theme_constant_override("margin_right", edge)
 	shell.add_theme_constant_override("margin_top", top)
@@ -143,7 +144,7 @@ func label(text_value: String, font_size: int = 24, color: Color = CREAM) -> Lab
 	var result := Label.new()
 	result.text = text_value
 	result.add_theme_font_size_override("font_size", font_size)
-	result.add_theme_color_override("font_color", color)
+	result.add_theme_color_override("font_color", (Color("244c42") if color==CREAM else Color("68816a")) if page in ["home","garden","garden_modes","garden_shop"] else color)
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	root_box.add_child(result)
@@ -207,26 +208,7 @@ func garden_view(height: int) -> void:
 	root_box.add_child(art)
 
 func show_home() -> void:
-	clear_page("home")
-	label(words("ТИХИЕ МГНОВЕНИЯ", "A QUIET MOMENT"), 18, MUTED)
-	label(words("Сад света", "Garden of Light"), 62)
-	label(words("Вернём саду Джека жизнь", "Bring Jack's garden back to life"), 24, MUTED)
-	garden_view(420)
-	if not error_message.is_empty():
-		label(error_message, 20)
-		return
-	button(words("Цветочный каскад · три в ряд", "Flower Cascade · match 3"), show_match_levels, null, true)
-	button(words("Дорожки света · продолжить", "Light paths · continue") + "  ›", func(): open_level(clampi(int(store.data.current),1,unlocked())), null, true)
-	button(words("Выбрать полянку", "Choose a clearing"), show_levels)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 14)
-	root_box.add_child(row)
-	button(words("Сад Джека · ", "Jack's garden · ")+str(store.data.garden.coins), show_garden, row)
-	button(words("Настройки", "Settings"), show_settings, row)
-	label(words("2 режима · 500 полянок", "2 modes · 500 clearings"), 19, MUTED)
-	label(words("Новый уровень → 25 садовых монет. Музыка — после касания.", "New level → 25 garden coins. Tap to enable music."), 16, MUTED)
-	if store.recovered:
-		label(words("Сохранение восстановлено. Проверьте прогресс.", "Save recovered. Please check your progress."), 18)
+	garden_ui.home()
 
 func unlocked() -> int:
 	var highest := 1
@@ -376,7 +358,7 @@ func persist() -> void:
 			notice.text = words("Не удалось сохранить прогресс. Проверьте свободное место.", "Could not save. Please check free storage.")
 
 func show_garden() -> void:
-	garden_ui.show()
+	garden_ui.open_garden()
 
 func show_settings() -> void:
 	clear_page("settings")

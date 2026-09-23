@@ -4,10 +4,16 @@ signal view_changed(camera: Array)
 const Rules=preload("res://scripts/garden_rules.gd")
 const Flowers=preload("res://scripts/match_art.gd")
 const BACKGROUND=preload("res://assets/garden-world.png")
+const BEDS=preload("res://assets/garden-beds.png")
 const DECOR=preload("res://assets/garden-decor.png")
 const WORLD=Vector2(3200,2400)
 var garden: Dictionary
 var interactive:=true
+var editing:=true
+var presentation:=false
+var occluded_bottom:=0.0
+var focus_index:=-1
+var focus_kind:="plot"
 var selected:=-1
 var preview_item:=-1
 var camera:=Vector2(1600,1400)
@@ -22,23 +28,29 @@ func _ready() -> void:
 	mouse_filter=Control.MOUSE_FILTER_STOP if interactive else Control.MOUSE_FILTER_IGNORE
 	if interactive:
 		camera=Vector2(garden.camera[0],garden.camera[1]); zoom=float(garden.camera[2])
+	if presentation: camera=WORLD*Vector2(.48,.41)
 	resized.connect(adjust)
 	adjust()
 
 func adjust() -> void:
 	if not interactive or fit_pending: overview(false)
+	elif presentation: zoom=maxf(size.x/WORLD.x,size.y/WORLD.y)*1.14
+	else: zoom=maxf(zoom,maxf(size.x/WORLD.x,size.y/WORLD.y))
+	if focus_index>=0: center_focus()
 	clamp_camera(); queue_redraw()
 
 func clamp_camera() -> void:
 	var half:=size/(2*zoom)
-	for axis in 2:
-		camera[axis]=WORLD[axis]/2 if half[axis]>=WORLD[axis]/2 else clampf(camera[axis],half[axis],WORLD[axis]-half[axis])
+	camera.x=WORLD.x/2 if half.x>=WORLD.x/2 else clampf(camera.x,half.x,WORLD.x-half.x)
+	var max_y:=WORLD.y-half.y+occluded_bottom/zoom
+	camera.y=WORLD.y/2 if max_y<half.y else clampf(camera.y,half.y,max_y)
 
 func overview(notify: bool=true) -> void:
 	if size.x<1 or size.y<1:
 		fit_pending=true; return
 	fit_pending=false
-	zoom=maxf(.1,minf(size.x/WORLD.x,size.y/WORLD.y))
+	focus_index=-1
+	zoom=maxf(size.x/WORLD.x,size.y/WORLD.y)*1.02 if interactive else maxf(.1,minf(size.x/WORLD.x,size.y/WORLD.y))
 	camera=WORLD/2
 	queue_redraw()
 	if notify: changed()
@@ -48,11 +60,16 @@ func changed() -> void:
 	view_changed.emit([camera.x,camera.y,zoom])
 
 func zoom_by(factor: float) -> void:
-	zoom=clampf(zoom*factor,.18,.85); changed()
+	focus_index=-1
+	zoom=clampf(zoom*factor,maxf(.18,maxf(size.x/WORLD.x,size.y/WORLD.y)),1.05); changed()
 
 func focus_place(kind: String,index: int) -> void:
-	camera=(Rules.plot_position(index) if kind=="plot" else Rules.REPAIR_POS[index])*WORLD
-	zoom=.5; changed()
+	focus_kind=kind; focus_index=index
+	zoom=maxf(.65,maxf(size.x/WORLD.x,size.y/WORLD.y)); center_focus(); changed()
+
+func center_focus() -> void:
+	camera=(Rules.plot_position(focus_index) if focus_kind=="plot" else Rules.REPAIR_POS[focus_index])*WORLD
+	camera.y+=(occluded_bottom-100)/2/zoom
 
 func screen_point(world: Vector2) -> Vector2:
 	return (world-camera)*zoom+size/2
@@ -63,7 +80,7 @@ func _gui_input(event: InputEvent) -> void:
 		if event.button_index==MOUSE_BUTTON_WHEEL_UP and event.pressed: zoom_by(1.15); accept_event()
 		elif event.button_index==MOUSE_BUTTON_WHEEL_DOWN and event.pressed: zoom_by(1/1.15); accept_event()
 		elif event.button_index==MOUSE_BUTTON_LEFT:
-			if event.pressed: dragging=true; distance=0; grab_focus()
+			if event.pressed: dragging=true; distance=0; focus_index=-1; grab_focus()
 			elif dragging:
 				dragging=false; changed()
 				if distance<12: select_at(event.position)
@@ -99,33 +116,55 @@ func decor(center: Vector2,radius: float,index: int,alpha: float=1) -> void:
 	var unit:=DECOR.get_width()/4.0
 	draw_texture_rect_region(DECOR,Rect2(center-Vector2.ONE*radius,Vector2.ONE*radius*2),Rect2(Vector2(index%4,index/4)*unit,Vector2.ONE*unit),Color(1,1,1,alpha),false,true)
 
+static func bed_texture(index: int) -> AtlasTexture:
+	var result:=AtlasTexture.new(); result.atlas=BEDS
+	var unit:=Vector2(BEDS.get_width()/3.0,BEDS.get_height()/2.0)
+	result.region=Rect2(Vector2(index%3,index/3)*unit,unit); result.filter_clip=true
+	return result
+
 func _draw() -> void:
 	if garden.is_empty(): return
-	draw_rect(Rect2(Vector2.ZERO,size),Color("163d33"))
+	draw_rect(Rect2(Vector2.ZERO,size),Color("254b32"))
 	draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
 	draw_texture_rect(BACKGROUND,Rect2(Vector2.ZERO,WORLD),false)
-	for slot in Rules.PLOT_COUNT:
-		var p:=Rules.plot_position(slot)*WORLD
+	var active_zone: int=(selected if selected>=0 else Rules.next_empty(garden))/6
+	var order: Array=range(Rules.PLOT_COUNT)
+	order.sort_custom(func(a,b): return Rules.plot_position(a).y<Rules.plot_position(b).y)
+	for slot in order:
+		var p: Vector2=Rules.plot_position(slot)*WORLD
 		var id:=int(garden.plots.get(str(slot),-1))
-		var ghost:=slot==selected and preview_item>=0
+		var ghost: bool=slot==selected and preview_item>=0
 		if ghost: id=preview_item
-		draw_set_transform(size/2-camera*zoom+p*zoom,0,Vector2(1,.55)*zoom)
-		draw_circle(Vector2.ZERO,74,Color("765339") if id>=0 else Color(0.3,.39,.16,.5),true,-1,true)
-		draw_arc(Vector2.ZERO,76,0,TAU,24,Color("ffdd86") if slot==selected else Color(.91,.91,.62,.6),5 if slot==selected else 2,true)
-		draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
+		if slot==selected:
+			draw_set_transform(size/2-camera*zoom+p*zoom,0,Vector2(1,.5)*zoom)
+			draw_circle(Vector2.ZERO,115,Color(1,.87,.5,.25))
+			draw_arc(Vector2.ZERO,114,0,TAU,40,Color("fff1a6"),5,true)
+			draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
 		if id>=0 and id<6:
-			for k in 5:
-				var offset:=Vector2.from_angle(k*TAU/5)*33
-				Flowers.draw_icon(self,p+offset-Vector2(0,20),35,int(Rules.ITEMS[id][3]),.7 if ghost else 1)
-		elif id>=6: decor(p-Vector2(0,26),88,int(Rules.ITEMS[id][3]),.7 if ghost else 1)
-		elif interactive:
-			draw_string(ThemeDB.fallback_font,p+Vector2(-15,12),"+",HORIZONTAL_ALIGNMENT_LEFT,-1,42,Color("ffedb2"))
+			var unit:=Vector2(BEDS.get_width()/3.0,BEDS.get_height()/2.0)
+			draw_texture_rect_region(BEDS,Rect2(p-Vector2(115,170),Vector2.ONE*230),Rect2(Vector2(id%3,id/3)*unit,unit),Color(1,1,1,.72 if ghost else 1),false,true)
+		elif id>=6: decor(p-Vector2(0,58),110,int(Rules.ITEMS[id][3]),.72 if ghost else 1)
+		elif interactive and editing and slot/6==active_zone:
+			draw_circle(p,32,Color(.13,.29,.20,.28),true,-1,true)
+			draw_arc(p,32,0,TAU,24,Color("fff1b9"),3,true)
+			draw_line(p-Vector2(12,0),p+Vector2(12,0),Color("fff8dc"),4,true)
+			draw_line(p-Vector2(0,12),p+Vector2(0,12),Color("fff8dc"),4,true)
+	var next_repair: int=-1
+	for i in Rules.REPAIRS.size():
+		if i not in garden.repairs: next_repair=i; break
 	for index in Rules.REPAIRS.size():
 		var restored: bool=index in garden.repairs
 		var p: Vector2=Rules.REPAIR_POS[index]*WORLD
 		if index==0 and restored: continue
-		decor(p,230 if index==2 else 190 if index==3 else 130,int(Rules.REPAIRS[index][5 if restored else 4]))
-		if interactive and not restored:
-			draw_circle(p+Vector2(0,100),28,Color("ffdc82"))
-			draw_string(ThemeDB.fallback_font,p+Vector2(-10,113),str(index+1),HORIZONTAL_ALIGNMENT_LEFT,-1,34,Color("34523b"))
+		decor(p-Vector2(0,70),270 if index==2 else 210 if index==3 else 170 if index==1 else 145,int(Rules.REPAIRS[index][5 if restored else 4]))
+		if interactive and index==next_repair:
+			var pin:=p+Vector2(0,76)
+			draw_circle(pin+Vector2(0,6),35,Color(.1,.22,.1,.3),true,-1,true)
+			draw_circle(pin,34,Color("fff3c7"),true,-1,true)
+			draw_arc(pin,34,0,TAU,28,Color("cf9e43"),4,true)
+			draw_string(ThemeDB.fallback_font,pin+Vector2(-7,13),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,40,Color("846025"))
 	draw_set_transform(Vector2.ZERO)
+	# Lightweight top shade keeps floating labels legible, without a full-screen filter.
+	if interactive:
+		for i in 12:
+			draw_rect(Rect2(0,i*14,size.x,15),Color(.04,.16,.12,.32*(1-float(i)/12)))

@@ -23,7 +23,7 @@ const REPAIRS=[
 	["Починить теплицу","Repair the greenhouse",600,6,14,5],
 	["Открыть цветочную лавку","Open the flower stall",900,10,15,6],
 	["Устроить цветочную беседку","Build the flower pergola",1200,15,12,7]]
-const REPAIR_POS=[Vector2(.50,.87),Vector2(.51,.47),Vector2(.82,.15),Vector2(.13,.69),Vector2(.13,.46)]
+const REPAIR_POS=[Vector2(.49,.81),Vector2(.495,.42),Vector2(.75,.195),Vector2(.20,.66),Vector2(.10,.405)]
 
 static func defaults() -> Dictionary:
 	return {"version":1,"coins":50,"earned":[],"plots":{},"repairs":[],"orders":0,"intro_step":0,"intro_done":false,"camera":[1600.0,1400.0,0.35]}
@@ -112,11 +112,16 @@ static func next_empty(g: Dictionary) -> int:
 		if not g.plots.has(str(slot)): return slot
 	return 0
 
+const PLOTS=[
+	Vector2(.38,.235),Vector2(.435,.235),Vector2(.49,.26),Vector2(.36,.285),Vector2(.415,.295),Vector2(.47,.30),
+	Vector2(.19,.315),Vector2(.245,.34),Vector2(.29,.38),Vector2(.20,.44),Vector2(.26,.475),Vector2(.31,.43),
+	Vector2(.66,.32),Vector2(.72,.335),Vector2(.78,.375),Vector2(.64,.40),Vector2(.70,.435),Vector2(.77,.455),
+	Vector2(.33,.60),Vector2(.39,.58),Vector2(.42,.63),Vector2(.32,.66),Vector2(.38,.685),Vector2(.43,.715),
+	Vector2(.59,.565),Vector2(.64,.575),Vector2(.60,.615),Vector2(.65,.63),Vector2(.60,.67),Vector2(.61,.72)]
+
 static func plot_position(slot: int) -> Vector2:
-	# One continuous estate; every plot has a stable position across reloads.
-	var x: float=[.29,.37,.45,.57,.65,.73][slot%6]
-	var y:=0.34+(slot/6)*0.09
-	return Vector2(x,y)
+	# Stable item IDs are preserved; landscaping changes their presentation only.
+	return PLOTS[slot]
 
 static func task(g: Dictionary,english: bool=false) -> String:
 	if g.plots.is_empty(): return "Plant Jack's first flowers (50 coins)." if english else "Посади первые цветы Джека — 50 монет."

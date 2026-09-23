@@ -65,5 +65,7 @@ func run() -> void:
 	game.garden_ui.map_view.overview(); await capture("restored")
 	game.store.data.settings.language="en"; game.garden_ui.help(); await capture("help-en")
 	game.queue_free(); await process_frame
+	# AudioServer releases stopped playback on its next mix cycle.
+	await create_timer(0.15).timeout
 	print("Garden UI checks: %d; failures: %d" %[checks,failures])
 	quit(1 if failures else 0)
