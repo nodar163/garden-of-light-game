@@ -26,6 +26,7 @@ func show() -> void:
 		else:
 			game.button(words("Заказы друзей","Orders from friends") if step==3 else words("Восстановить сад","Restore the garden") if step in [0,2,5,6,7,8] else words("Выбрать уровень","Choose a level"),orders if step==3 else ui.open_shop if step==0 else ui.focus_task if step in [2,5,6,7,8] else ui.modes,null,true)
 	game.button(words("Заказы и букеты","Orders and bouquets"),orders)
+	game.button(words("Открытия сада","Garden discoveries"),journey)
 	game.button(words("Альбом цветов","Flower album"),album)
 	for id in ui.g().story.claimed:
 		game.label(ui.title_of(Story.STEPS[int(id)])+" · "+words("завершено","complete"),22)
@@ -67,3 +68,35 @@ func album() -> void:
 		var text:=Label.new(); text.text=ui.title_of(Rules.ITEMS[id])+"\n"+(words("Растёт в нашем саду","Growing in our garden") if id in ui.g().plots.values() else words("Посади этот сорт","Plant this variety")); text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; text.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(text)
 	game.button(words("Выбрать цветы","Choose flowers"),ui.open_shop)
 	game.button(words("Дневник","Journal"),show)
+
+func journey() -> void:
+	begin(words("ОТКРЫТИЯ САДА","GARDEN DISCOVERIES"))
+	game.label(words("Подарки за всё путешествие","Gifts along the journey"),32)
+	game.label(words("Каждый новый уровень любого режима приближает сад к следующему открытию. Старые победы учтены.","Every new level in either mode brings the next discovery closer. Earlier wins count."),23)
+	for id in Story.MILESTONES.size():
+		var entry: Array=Story.MILESTONES[id]
+		var collected: bool=id in ui.g().story.milestones
+		var row:=HBoxContainer.new(); game.root_box.add_child(row)
+		var art:=TextureRect.new(); art.texture=Map.decor_texture(int(entry[5])); art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; art.custom_minimum_size=Vector2(84,84); row.add_child(art)
+		var label:=VBoxContainer.new(); label.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(label)
+		var name:=Label.new(); name.text=entry[2 if ui.english() else 1]; name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; label.add_child(name)
+		var progress:=Label.new(); progress.text=words("Уровни: %d/%d","Levels: %d/%d") % [mini(ui.g().earned.size(),int(entry[0])),int(entry[0])]; label.add_child(progress)
+		game.label(entry[4 if ui.english() else 3],21)
+		game.button(words("Уже в саду","In the garden") if collected else words("Добавить в сад","Add to garden"),func():
+			if game.store.garden_transaction(func(data): return Story.milestone_claim(data,id)):
+				game.sound.play_match("win"); milestone_scene(id)
+			else: game.label(words("Не удалось сохранить открытие.","Could not save discovery."),21),null,true).disabled=collected or not Story.milestone_ready(ui.g(),id)
+	game.button(words("Дневник","Journal"),show)
+func milestone_scene(id: int) -> void:
+	begin(words("НОВОЕ В САДУ","NEW IN THE GARDEN"))
+	var entry: Array=Story.MILESTONES[id]
+	game.label(entry[2 if ui.english() else 1],36)
+	game.label(entry[4 if ui.english() else 3],27)
+	game.label(words("Подарок уже появился на карте. Он не занимает место и не требует монет.","The gift is now on the map. It takes no plot and costs no coins."),24)
+	game.button(words("Увидеть в саду","See it in the garden"),func():
+		ui.open_garden()
+		ui.map_view.focus_index=-1
+		ui.map_view.zoom=.65
+		ui.map_view.camera=entry[6]*Map.WORLD
+		ui.map_view.changed(),null,true)
+	game.button(words("Все открытия","All discoveries"),journey)

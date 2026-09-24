@@ -20,17 +20,28 @@ const LINES=[
 	["Джек: Здесь бабушкин дневник! Рядом с каждым сортом — история человека, которому она дарила цветы.","Jack: Grandma's journal! Beside each flower is the story of someone she gave it to."],
 	["Марк: Твоя лавка снова открыта! Мне нужен солнечный букет для нашей маленькой библиотеки.","Mark: Your shop is open again! I need a sunny bouquet for our little library."],
 	["Джек: Теперь это место встреч. Спасибо, что вернул саду не только цветы, но и друзей.","Jack: A meeting place again. Thank you for bringing back our flowers and our friends."]]
+const MILESTONES=[
+ [25,"Домик для птиц","Birdhouse", "Птицы снова навещают сад.","Birds return to the garden.",2,Vector2(.44,.35)],
+ [50,"Тёплые фонари","Warm lanterns","Дорожки светятся после заката.","The paths glow after sunset.",1,Vector2(.53,.63)],
+ [100,"Аллея роз","Rose walk","У розовой дорожки появились новые цветы.","New blooms line the rose walk.",3,Vector2(.22,.39)],
+ [150,"Тележка Джека","Jack's cart","Джек отвозит букеты соседям.","Jack delivers bouquets to our neighbours.",8,Vector2(.37,.72)],
+ [200,"Уголок пчёл","Bee corner","В сад снова прилетели пчёлы.","Bees have found the garden again.",9,Vector2(.72,.39)],
+ [300,"Прудовый гость","Pond visitor","У пруда поселился садовый зайчик.","A garden rabbit visits the pond.",10,Vector2(.66,.72)],
+ [400,"Солнечные часы","Sundial","Теперь каждый час напоминает о пути, который мы прошли.","Each hour reminds us how far we have come.",11,Vector2(.19,.65)],
+ [500,"Сад тысячи огней","Garden of a thousand lights","Весь сад цветёт. Джек приглашает друзей на вечер цветов.","The whole garden blooms. Jack invites friends to a flower evening.",1,Vector2(.48,.78)]]
+
 const CUSTOMERS=[
 	["Анна · мамин день рождения","Anna · Mum's birthday",[0,1],8,50,"Мама любит розовое и золотое.","Mum loves pink and gold."],
 	["Марк · букет для библиотеки","Mark · library flowers",[1,4],18,65,"Пусть у книжной полки будет солнечно.","A little sunshine beside the books."],
 	["Лея · вечер на веранде","Leah · an evening outside",[2,3],28,80,"Лавандовые и голубые цветы напомнят о лете.","Purple and blue flowers to remember summer."]]
 
 static func ensure(g: Dictionary) -> void:
-	if not g.has("story"): g.story={"claimed":[],"deliveries":[],"styles":{},"evening":false,"last_mode":"match"}
+	if not g.has("story"): g.story={"claimed":[],"deliveries":[],"styles":{},"evening":false,"last_mode":"match","milestones":[]}
+	if not g.story.has("milestones"): g.story.milestones=[]
 
 static func valid(s: Variant) -> bool:
-	if not s is Dictionary or not s.get("claimed") is Array or not s.get("deliveries") is Array or not s.get("styles") is Dictionary or not s.get("evening") is bool or s.get("last_mode") not in ["light","match"]: return false
-	for pair in [[s.claimed,STEPS.size()],[s.deliveries,CUSTOMERS.size()]]:
+	if not s is Dictionary or (s.has("milestones") and not s.milestones is Array) or not s.get("claimed") is Array or not s.get("deliveries") is Array or not s.get("styles") is Dictionary or not s.get("evening") is bool or s.get("last_mode") not in ["light","match"]: return false
+	for pair in [[s.claimed,STEPS.size()],[s.deliveries,CUSTOMERS.size()],[s.get("milestones",[]),MILESTONES.size()]]:
 		var seen: Dictionary={}
 		for id in pair[0]:
 			if not typeof(id) in [TYPE_INT,TYPE_FLOAT] or float(id)!=int(id) or int(id)<0 or int(id)>=pair[1] or seen.has(int(id)): return false
@@ -81,4 +92,13 @@ static func style(g: Dictionary,id: int,value: int) -> bool:
 	ensure(g)
 	if id not in g.repairs or value<0 or value>2: return false
 	g.story.styles[str(id)]=value
+	return true
+
+static func milestone_ready(g: Dictionary,id: int) -> bool:
+	ensure(g)
+	return id>=0 and id<MILESTONES.size() and id not in g.story.milestones and g.earned.size()>=MILESTONES[id][0]
+
+static func milestone_claim(g: Dictionary,id: int) -> bool:
+	if not milestone_ready(g,id): return false
+	g.story.milestones.append(id)
 	return true

@@ -175,6 +175,12 @@ func _draw() -> void:
 			draw_arc(p,32,0,TAU,24,Color("fff1b9"),3,true)
 			draw_line(p-Vector2(12,0),p+Vector2(12,0),Color("fff8dc"),4,true)
 			draw_line(p-Vector2(0,12),p+Vector2(0,12),Color("fff8dc"),4,true)
+	# Commemorative landmarks are part of the world, independent of paid plots.
+	for id in garden.get("story",{}).get("milestones",[]):
+		var gift: Array=Rules.Story.MILESTONES[int(id)]
+		var place: Vector2=gift[6]*WORLD
+		if Rect2(Vector2.ZERO,size).grow(150*zoom).has_point(screen_point(place)):
+			decor(place-Vector2(0,55),90,int(gift[5]))
 	var next_repair: int=-1
 	for i in Rules.REPAIRS.size():
 		if i not in garden.repairs: next_repair=i; break

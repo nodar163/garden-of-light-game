@@ -18,14 +18,16 @@ func run() -> void:
 	await process_frame
 	game.store.data.completed=range(1,251); game.store.data.match3.completed=range(1,251); Rules.sync(game.store.data)
 	for i in 30: game.store.data.garden.plots[str(i)]=i%14
-	game.store.data.garden.repairs=[0,1,2,3,4]; game.store.data.garden.story.evening=true
+	game.store.data.garden.repairs=[0,1,2,3,4]; game.store.data.garden.story.evening=true; game.store.data.garden.story.milestones=range(8)
 	game.garden_ui.open_garden(); await create_timer(.3).timeout
-	frame_times=[]; active=true
-	for i in 180:
-		game.garden_ui.map_view.camera.x=1600+sin(i*.035)*480
-		game.garden_ui.map_view.queue_redraw()
-		await process_frame
-	active=false; report.garden_pan=stats(frame_times)
+	for gift_count in [0,8,0,8]:
+		game.store.data.garden.story.milestones=range(gift_count)
+		frame_times=[]; active=true
+		for i in 180:
+			game.garden_ui.map_view.camera.x=1600+sin(i*.035)*480
+			game.garden_ui.map_view.queue_redraw()
+			await process_frame
+		active=false; report["garden_pan_"+str(gift_count)+"_"+str(report.size())]=stats(frame_times)
 	game.open_match(250); await create_timer(.3).timeout
 	frame_times=[]; active=true
 	for step in game.match_model.level.witness.slice(0,4):

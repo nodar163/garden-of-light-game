@@ -92,10 +92,10 @@ func home() -> void:
 	HUD.text(copy,words("ДЖЕК · НАША СЛЕДУЮЩАЯ ЦЕЛЬ","JACK · OUR NEXT TASK"),18,HUD.SOFT)
 	HUD.text(copy,task_title(),28)
 	HUD.text(copy,task_detail(),20,HUD.SOFT)
-	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size(); progress.value=g().story.claimed.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
+	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 500; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
-	game.button(words("История сада  ›","Garden story  ›"),journal,hud.content,true)
+	game.button(words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),journal,hud.content,true)
 	var light: bool=g().story.last_mode=="light"
 	var id: int=game.unlocked() if light else game.match_unlocked()
 	hud.play_button((words("Дорожки света","Light paths") if light else words("Цветочный каскад","Flower Cascade"))+words("\nИграть · уровень ","\nPlay · level ")+str(id),func(): game.open_level(id) if light else game.open_match(id))
@@ -105,15 +105,24 @@ func home() -> void:
 
 func task_title() -> String:
 	var step: int=Story.next(g())
-	return title_of(Story.STEPS[step]) if step<Story.STEPS.size() else words("Сад, который создали мы","A garden we made together")
+	if step<Story.STEPS.size(): return title_of(Story.STEPS[step])
+	for id in Story.MILESTONES.size():
+		if id not in g().story.milestones: return Story.MILESTONES[id][2 if english() else 1]
+	return words("Сад, который создали мы","A garden we made together")
 
 func task_detail() -> String:
 	var step: int=Story.next(g())
-	if step>=Story.STEPS.size(): return words("Выбирай цветы, собирай букеты и украшай сад.","Choose flowers, make bouquets and decorate.")
+	if step>=Story.STEPS.size():
+		for id in Story.MILESTONES.size():
+			if id not in g().story.milestones:
+				var goal: int=int(Story.MILESTONES[id][0])
+				return words("Награда готова — добавь её в сад.","Gift ready — add it to the garden.") if Story.milestone_ready(g(),id) else words("Новые уровни: %d/%d","New levels: %d/%d") % [g().earned.size(),goal]
+		return words("Выбирай цветы, собирай букеты и украшай сад.","Choose flowers, make bouquets and decorate.")
 	return words("Готово! Джек ждёт тебя.","Ready! Jack is waiting for you.") if Story.ready(g(),step) else Story.STEPS[step][3 if english() else 2]
 
 func journal() -> void:
-	Journal.new(self).show()
+	if Story.next(g())>=Story.STEPS.size(): journey()
+	else: Journal.new(self).show()
 
 func open_shop() -> void:
 	slot=Rules.next_empty(g()); pending=-1; repair_index=-1; shop()
@@ -319,3 +328,6 @@ func toggle_evening() -> void:
 		message=words("Вечер откроется в истории после 12 уровней и первого заказа.","Evening unlocks in the story after 12 levels and your first order."); show(); return
 	if not game.store.garden_transaction(func(data): data.story.evening=not data.story.evening; return true): message=words("Не удалось сохранить.","Could not save.")
 	show()
+
+func journey() -> void:
+	Journal.new(self).journey()
