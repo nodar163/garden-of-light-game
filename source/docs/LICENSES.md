@@ -17,3 +17,6 @@
 - Новый garden-world.png и прозрачный garden-beds.png созданы встроенным imagegen 23 сентября 2026 для проекта. Точные промпты: GARDEN-REDESIGN-PROMPTS.md. Референсы и графика сторонних игр не копировались.
 
 - assets/ui-coin.svg, ui-settings.svg, ui-center.svg, ui-plus.svg, ui-minus.svg и ui-back.svg — собственные векторные значки интерфейса, не зависящие от шрифтов браузера.
+
+
+`assets/garden-cat.svg` — собственный векторный рисунок для проекта (24 сентября 2026); внешние ресурсы не использованы.

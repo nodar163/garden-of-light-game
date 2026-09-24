@@ -119,3 +119,19 @@ func garden_transaction(action: Callable) -> bool:
 	if write(): return true
 	data.garden=previous
 	return false
+
+func import_copy(text_value: String) -> bool:
+	if text_value.length()>4000000: return false
+	var parser:=JSON.new()
+	if parser.parse(text_value)!=OK: return false
+	var candidate: Variant=parser.data
+	if not valid(candidate): return false
+	var previous: Dictionary=data.duplicate(true)
+	data=candidate
+	if not data.has("match3"): data.match3={"current":1,"completed":[],"boards":{}}
+	Garden.sync(data)
+	if write():
+		load_data()
+		return true
+	data=previous
+	return false

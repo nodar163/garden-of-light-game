@@ -256,6 +256,8 @@ func select_group(direction: int) -> void:
 	show_levels()
 
 func open_level(id: int) -> void:
+	GardenRules.Story.ensure(store.data.garden)
+	store.data.garden.story.last_mode="light"
 	light_rewarded=false
 	if id < 1 or id > levels.size():
 		return
@@ -376,6 +378,7 @@ func show_settings() -> void:
 	label(words("Игра не собирает данные и не подключается к сети. Прогресс хранится только на устройстве.", "No data collection or network connection. Progress stays on this device."), 22, MUTED)
 	label(words("При удалении приложения прогресс может быть потерян.", "Uninstalling the app may remove your progress."), 18, MUTED)
 	button(words("История Джека", "Jack's story"),func(): garden_ui.replay=true; garden_ui.intro(0))
+	button(words("Резервная копия", "Save backup"),show_backup)
 	button(words("Лицензии", "Licenses"), show_licenses)
 
 func toggle(key: String) -> void:
@@ -468,6 +471,8 @@ func show_match_help() -> void:
 	button(words("К букетам", "Back to bouquets"),show_match_levels,null,true)
 
 func open_match(id: int) -> void:
+	GardenRules.Story.ensure(store.data.garden)
+	store.data.garden.story.last_mode="match"
 	match_rewarded=false
 	if id < 1 or id > match_levels.size() or id > match_unlocked(): return
 	store.data.match3.current=id
@@ -598,3 +603,18 @@ func show_starter() -> void:
 			save_match(); refresh_match())
 	menu.popup_hide.connect(menu.queue_free)
 	menu.popup_centered(Vector2i(360,270))
+
+func show_backup() -> void:
+	clear_page("backup"); header(words("КОПИЯ ПРОГРЕССА","PROGRESS BACKUP"))
+	label(words("Сохрани этот текст в файле или заметках. Для восстановления вставь текст своей копии сюда.","Keep this text in a file or notes. Paste your backup here to restore it."),24)
+	var field:=TextEdit.new(); field.text=JSON.stringify(store.data); field.size_flags_vertical=Control.SIZE_EXPAND_FILL; field.wrap_mode=TextEdit.LINE_WRAPPING_BOUNDARY; root_box.add_child(field)
+	button(words("Выделить копию","Select backup"),func(): field.grab_focus(); field.select_all())
+	var feedback:=label("",22)
+	button(words("Восстановить из текста","Restore from text"),func():
+		var dialog:=ConfirmationDialog.new(); dialog.dialog_text=words("Текущий прогресс будет заменён этой копией. Продолжить?","This backup will replace your current progress. Continue?"); add_child(dialog)
+		dialog.confirmed.connect(func():
+			if store.import_copy(field.text): sound.configure(store.data.settings); show_home()
+			else: feedback.text=words("Копия повреждена или не сохранена. Текущий прогресс сохранён.","Invalid backup or save failed. Current progress is safe."))
+		dialog.visibility_changed.connect(func():
+			if not dialog.visible: dialog.queue_free())
+		dialog.popup_centered(Vector2i(540,220)))

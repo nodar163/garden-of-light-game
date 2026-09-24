@@ -1,5 +1,6 @@
 extends RefCounted
 ## All economy operations are deterministic, local and independent of the view.
+const Story=preload("res://scripts/garden_story.gd")
 const REWARD=25
 const PLOT_COUNT=30
 const ITEMS=[
@@ -32,6 +33,7 @@ static func valid(g: Variant) -> bool:
 	if not g is Dictionary or g.get("version")!=1: return false
 	for key in ["coins","orders","intro_step"]:
 		if not typeof(g.get(key)) in [TYPE_INT,TYPE_FLOAT] or float(g[key])!=int(g[key]) or int(g[key])<0: return false
+	if g.has("story") and not Story.valid(g.story): return false
 	if int(g.coins)>1000000 or int(g.orders)>50 or int(g.intro_step)>3: return false
 	if not g.get("intro_done") is bool or not g.get("plots") is Dictionary or not g.get("earned") is Array or not g.get("repairs") is Array: return false
 	if not g.get("camera") is Array or g.camera.size()!=3: return false
@@ -57,6 +59,7 @@ static func valid(g: Variant) -> bool:
 static func sync(data: Dictionary) -> int:
 	if not data.has("garden"): data.garden=defaults()
 	var g: Dictionary=data.garden
+	Story.ensure(g)
 	g.version=1
 	for i in 3: g.camera[i]=float(g.camera[i])
 	g.coins=int(g.coins); g.orders=int(g.orders); g.intro_step=int(g.intro_step)
@@ -129,3 +132,11 @@ static func task(g: Dictionary,english: bool=false) -> String:
 		if i not in g.repairs:
 			return ("Next: %s. Plots: %d/%d · %d coins." if english else "Дальше: %s. Мест: %d/%d · %d монет.") % [REPAIRS[i][1 if english else 0],g.plots.size(),REPAIRS[i][3],REPAIRS[i][2]]
 	return ("Your garden is alive! Decorate all 30 places: %d/30." if english else "Сад снова живёт! Укрась все 30 мест: %d/30.") % g.plots.size()
+
+static func move(g: Dictionary,source: int,target: int) -> bool:
+	if source==target or source<0 or target<0 or source>=PLOT_COUNT or target>=PLOT_COUNT or not g.plots.has(str(source)): return false
+	var item: int=int(g.plots[str(source)])
+	if g.plots.has(str(target)): g.plots[str(source)]=g.plots[str(target)]
+	else: g.plots.erase(str(source))
+	g.plots[str(target)]=item
+	return true

@@ -1,6 +1,7 @@
 extends Control
 signal place_selected(kind: String,index: int)
 signal view_changed(camera: Array)
+signal cat_selected
 const Rules=preload("res://scripts/garden_rules.gd")
 const Flowers=preload("res://scripts/match_art.gd")
 const BACKGROUND=preload("res://assets/garden-world.png")
@@ -21,9 +22,16 @@ var zoom:=0.35
 var dragging:=false
 var distance:=0.0
 var fit_pending:=false
+var sorted_plots: Array=[]
+var reduced:=false
+var effects: Control
+var camera_tween: Tween
 
 func _ready() -> void:
 	clip_contents=true
+	sorted_plots=range(Rules.PLOT_COUNT)
+	sorted_plots.sort_custom(func(a,b): return Rules.plot_position(a).y<Rules.plot_position(b).y)
+	effects=preload("res://scripts/garden_life.gd").new(); effects.map=self; effects.reduced=reduced; add_child(effects)
 	focus_mode=Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
 	mouse_filter=Control.MOUSE_FILTER_STOP if interactive else Control.MOUSE_FILTER_IGNORE
 	if interactive:
@@ -61,7 +69,12 @@ func changed() -> void:
 
 func zoom_by(factor: float) -> void:
 	focus_index=-1
-	zoom=clampf(zoom*factor,maxf(.18,maxf(size.x/WORLD.x,size.y/WORLD.y)),1.05); changed()
+	var target: float=clampf(zoom*factor,maxf(.18,maxf(size.x/WORLD.x,size.y/WORLD.y)),1.05)
+	if camera_tween: camera_tween.kill()
+	if reduced: zoom=target; changed(); return
+	camera_tween=create_tween()
+	camera_tween.tween_method(func(value: float): zoom=value; clamp_camera(); queue_redraw(),zoom,target,.22).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
+	camera_tween.tween_callback(changed)
 
 func focus_place(kind: String,index: int) -> void:
 	focus_kind=kind; focus_index=index
@@ -80,7 +93,9 @@ func _gui_input(event: InputEvent) -> void:
 		if event.button_index==MOUSE_BUTTON_WHEEL_UP and event.pressed: zoom_by(1.15); accept_event()
 		elif event.button_index==MOUSE_BUTTON_WHEEL_DOWN and event.pressed: zoom_by(1/1.15); accept_event()
 		elif event.button_index==MOUSE_BUTTON_LEFT:
-			if event.pressed: dragging=true; distance=0; focus_index=-1; grab_focus()
+			if event.pressed:
+				if camera_tween: camera_tween.kill()
+				dragging=true; distance=0; focus_index=-1; grab_focus()
 			elif dragging:
 				dragging=false; changed()
 				if distance<12: select_at(event.position)
@@ -94,6 +109,8 @@ func _gui_input(event: InputEvent) -> void:
 			changed(); accept_event()
 
 func select_at(point: Vector2) -> void:
+	if screen_point(Vector2(1520,790)).distance_to(point)<maxf(28,70*zoom):
+		cat_selected.emit(); return
 	var nearest:=-1
 	var best:=maxf(28,76*zoom)
 	for slot in Rules.PLOT_COUNT:
@@ -138,10 +155,9 @@ func _draw() -> void:
 	draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
 	draw_texture_rect(BACKGROUND,Rect2(Vector2.ZERO,WORLD),false)
 	var active_zone: int=visible_area()
-	var order: Array=range(Rules.PLOT_COUNT)
-	order.sort_custom(func(a,b): return Rules.plot_position(a).y<Rules.plot_position(b).y)
-	for slot in order:
+	for slot in sorted_plots:
 		var p: Vector2=Rules.plot_position(slot)*WORLD
+		if not Rect2(Vector2.ZERO,size).grow(220*zoom).has_point(screen_point(p)): continue
 		var id:=int(garden.plots.get(str(slot),-1))
 		var ghost: bool=slot==selected and preview_item>=0
 		if ghost: id=preview_item
@@ -165,6 +181,13 @@ func _draw() -> void:
 	for index in Rules.REPAIRS.size():
 		var restored: bool=index in garden.repairs
 		var p: Vector2=Rules.REPAIR_POS[index]*WORLD
+		if restored:
+			var choice: int=int(garden.get("story",{}).get("styles",{}).get(str(index),0))
+			var color: Color=[Color("b8b5ff"),Color("ff94c0"),Color("ffe590")][choice]
+			for side in [-1,1]:
+				var pos:=p+Vector2(side*145,20)
+				decor(pos,52,3 if choice==1 else 8 if choice==2 else 2)
+				draw_arc(pos+Vector2(0,22),48,0,PI,16,color,4,true)
 		if index==0 and restored: continue
 		decor(p-Vector2(0,70),270 if index==2 else 210 if index==3 else 170 if index==1 else 145,int(Rules.REPAIRS[index][5 if restored else 4]))
 		if interactive and index==next_repair:
@@ -174,6 +197,8 @@ func _draw() -> void:
 			draw_arc(pin,34,0,TAU,28,Color("cf9e43"),4,true)
 			draw_string(ThemeDB.fallback_font,pin+Vector2(-7,13),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,40,Color("846025"))
 	draw_set_transform(Vector2.ZERO)
+	if garden.get("story",{}).get("evening",false):
+		draw_rect(Rect2(Vector2.ZERO,size),Color(.06,.10,.25,.40))
 	# Lightweight top shade keeps floating labels legible, without a full-screen filter.
 	if interactive:
 		for i in 12:

@@ -4,6 +4,8 @@ signal animation_done(valid: bool)
 signal sound_requested(kind: String)
 const Art = preload("res://scripts/match_art.gd")
 var style_cache: Dictionary = {}
+static var floor_cache: Dictionary={}
+var floor_texture: Texture2D
 const Model = preload("res://scripts/match_rules.gd")
 var model: Model
 var shown: Dictionary = {}
@@ -24,6 +26,7 @@ func _ready() -> void:
 	focus_mode = Control.FOCUS_ALL
 	mouse_default_cursor_shape = Control.CURSOR_POINTING_HAND
 	shown = model.snapshot()
+	floor_texture=make_floor(model.n)
 	resized.connect(queue_redraw)
 
 func field_rect() -> Rect2:
@@ -130,11 +133,9 @@ func _draw() -> void:
 	if shown.is_empty(): return
 	var rect := field_rect()
 	var cell := rect.size.x/model.n
-	box(rect.grow(10),Color("142e46"),Color("e1c986"),28)
-	box(rect.grow(4),Color("295365"),Color("5e9b98"),24)
+	draw_texture_rect(floor_texture,rect.grow(10),false)
 	for i in model.n*model.n:
 		var p := tile_center(i)
-		box(Rect2(p-Vector2.ONE*(cell/2-2),Vector2.ONE*(cell-4)),Color("326d70") if (i+i/model.n)%2==0 else Color("2e626b"),Color(0.5,0.85,0.8,0.12),10)
 		if int(shown.dew[i]) > 0:
 			box(Rect2(p-Vector2.ONE*(cell/2-4),Vector2.ONE*(cell-8)),Color(0.37,0.79,0.91,0.23),Color("98e4f2"),10)
 			if int(shown.dew[i]) > 1: draw_arc(p,cell*0.39,0,TAU,24,Color("d0fbff"),2,true)
@@ -188,3 +189,16 @@ func _draw() -> void:
 					Art.draw_icon(self,spot,cell*0.4,7,1-blend*0.35)
 				"rainbow":
 					for k in 6: draw_arc(p,cell*(0.35+blend*1.2+k*0.07),0,TAU,48,Color(PETALS[k],1-blend),3,true)
+
+static func make_floor(n: int) -> Texture2D:
+	if floor_cache.has(n): return floor_cache[n]
+	var svg: String='<svg xmlns="http://www.w3.org/2000/svg" width="760" height="760"><rect x="2" y="2" width="756" height="756" rx="38" fill="#142e46" stroke="#e1c986" stroke-width="3"/><rect x="10" y="10" width="740" height="740" rx="30" fill="#295365" stroke="#5e9b98" stroke-width="3"/>'
+	var cell:=720.0/n
+	for i in n*n:
+		svg+='<rect x="%f" y="%f" width="%f" height="%f" rx="12" fill="%s" stroke="#54888a" stroke-width="1"/>' % [22+(i%n)*cell,22+(i/n)*cell,cell-4,cell-4,"#326d70" if (i+i/n)%2==0 else "#2e626b"]
+	svg+='</svg>'
+	var img:=Image.new()
+	if img.load_svg_from_string(svg)!=OK: push_error("Cannot render board floor")
+	var texture:=ImageTexture.create_from_image(img)
+	floor_cache[n]=texture
+	return texture

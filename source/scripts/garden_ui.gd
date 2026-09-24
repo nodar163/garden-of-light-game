@@ -1,4 +1,6 @@
 extends RefCounted
+const Story=preload("res://scripts/garden_story.gd")
+const Journal=preload("res://scripts/garden_journal.gd")
 const HUD=preload("res://scripts/garden_hud.gd")
 const Rules=preload("res://scripts/garden_rules.gd")
 const Map=preload("res://scripts/garden_map.gd")
@@ -7,6 +9,7 @@ const JACK=preload("res://assets/jack.png")
 var game: Control
 var map_view: Control
 var hud: RefCounted
+var move_source:=-1
 var slot:=-1
 var repair_index:=-1
 var pending:=-1
@@ -29,7 +32,7 @@ func save_view(value: Array) -> void:
 		message=words("Не удалось сохранить. Проверьте свободное место.","Could not save. Check free storage.")
 
 func make_map(height: int,interactive: bool=true) -> Control:
-	var view=Map.new(); view.garden=g(); view.interactive=interactive
+	var view=Map.new(); view.reduced=game.store.data.settings.reduce_motion; view.garden=g(); view.interactive=interactive
 	view.custom_minimum_size.y=height; view.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	view.selected=slot; view.preview_item=pending
 	game.root_box.add_child(view)
@@ -78,8 +81,10 @@ func finish_intro() -> void:
 	replay=false; game.show_home()
 
 func home() -> void:
+	move_source=-1
 	Rules.sync(game.store.data)
 	hud=HUD.new(game,"home"); map_view=hud.map
+	map_view.cat_selected.connect(func(): message=words("Джек: Это Персик. Любит тёплые дорожки и смотреть, как растут цветы.","Jack: This is Peaches. He loves warm paths and watching the flowers grow."); slot=-1; repair_index=-1; show())
 	map_view.place_selected.connect(select_place)
 	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",16); hud.content.add_child(row)
 	HUD.face(row)
@@ -87,37 +92,37 @@ func home() -> void:
 	HUD.text(copy,words("ДЖЕК · НАША СЛЕДУЮЩАЯ ЦЕЛЬ","JACK · OUR NEXT TASK"),18,HUD.SOFT)
 	HUD.text(copy,task_title(),28)
 	HUD.text(copy,task_detail(),20,HUD.SOFT)
-	var progress:=ProgressBar.new(); progress.max_value=5; progress.value=g().repairs.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
+	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size(); progress.value=g().story.claimed.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
-	game.button(words("Помочь Джеку  ›","Help Jack  ›"),focus_task,hud.content,true)
-	var id: int=game.match_unlocked()
-	hud.play_button(words("Цветочный каскад\nИграть · уровень ","Flower Cascade\nPlay · level ")+str(id),func(): game.open_match(id))
+	game.button(words("История сада  ›","Garden story  ›"),journal,hud.content,true)
+	var light: bool=g().story.last_mode=="light"
+	var id: int=game.unlocked() if light else game.match_unlocked()
+	hud.play_button((words("Дорожки света","Light paths") if light else words("Цветочный каскад","Flower Cascade"))+words("\nИграть · уровень ","\nPlay · level ")+str(id),func(): game.open_level(id) if light else game.open_match(id))
 	hud.nav([[words("Мой сад","My garden"),open_garden],[words("Режимы","Modes"),modes],[words("Лавка","Shop"),open_shop]])
 	if not game.error_message.is_empty(): HUD.text(hud.content,game.error_message,20,Color("a53636"))
 	if game.store.recovered: HUD.text(hud.content,words("Сохранение восстановлено из копии.","Save recovered from backup."),18)
 
 func task_title() -> String:
-	if g().plots.is_empty(): return words("Первый цветущий уголок","Our first flowerbed")
-	for i in Rules.REPAIRS.size():
-		if i not in g().repairs: return title_of(Rules.REPAIRS[i])
-	return words("Сад, который создали мы","A garden we made together")
+	var step: int=Story.next(g())
+	return title_of(Story.STEPS[step]) if step<Story.STEPS.size() else words("Сад, который создали мы","A garden we made together")
 
 func task_detail() -> String:
-	if g().plots.is_empty(): return words("Посадим космеи у домика · 50 монет","Cosmos by the cottage · 50 coins")
-	for i in Rules.REPAIRS.size():
-		if i not in g().repairs:
-			var item: Array=Rules.REPAIRS[i]
-			return words("Глава %d/5 · %d монет · посадки %d/%d","Chapter %d/5 · %d coins · places %d/%d") % [i+1,item[2],mini(g().plots.size(),item[3]),item[3]]
-	return words("Украшено %d из 30 мест. Добавим красок?","%d of 30 places decorated. Add more colour?") % g().plots.size()
+	var step: int=Story.next(g())
+	if step>=Story.STEPS.size(): return words("Выбирай цветы, собирай букеты и украшай сад.","Choose flowers, make bouquets and decorate.")
+	return words("Готово! Джек ждёт тебя.","Ready! Jack is waiting for you.") if Story.ready(g(),step) else Story.STEPS[step][3 if english() else 2]
+
+func journal() -> void:
+	Journal.new(self).show()
 
 func open_shop() -> void:
 	slot=Rules.next_empty(g()); pending=-1; repair_index=-1; shop()
 
 func open_garden() -> void:
-	slot=-1; repair_index=-1; pending=-1; message=""; show()
+	move_source=-1; slot=-1; repair_index=-1; pending=-1; message=""; show()
 
 func modes() -> void:
+	move_source=-1
 	hud=HUD.new(game,"garden_modes"); map_view=hud.map
 	HUD.text(hud.content,words("Как сыграем сегодня?","What shall we play?"),32)
 	HUD.text(hud.content,words("Оба режима приносят монеты в один сад.","Both modes earn coins for the same garden."),22,HUD.SOFT)
@@ -143,6 +148,7 @@ func show() -> void:
 	Rules.sync(game.store.data)
 	hud=HUD.new(game,"garden"); map_view=hud.map
 	map_view.selected=slot; map_view.preview_item=pending
+	map_view.cat_selected.connect(func(): message=words("Джек: Это Персик. Любит тёплые дорожки и смотреть, как растут цветы.","Jack: This is Peaches. He loves warm paths and watching the flowers grow."); slot=-1; repair_index=-1; show())
 	map_view.place_selected.connect(select_place); map_view.view_changed.connect(save_view)
 	if pending>=0:
 		map_view.focus_place("plot",slot)
@@ -156,13 +162,17 @@ func show() -> void:
 		game.label(title_of(Rules.ITEMS[item]) if item>=0 else words("Здесь будет красиво","A lovely spot for flowers"),29)
 		var row:=HBoxContainer.new(); game.root_box.add_child(row)
 		game.button(words("Изменить","Change") if item>=0 else words("Выбрать цветы","Choose flowers"),shop,row,true)
-		if item>=0: game.button(words("Убрать · +","Remove · +")+str(Rules.ITEMS[item][2]),remove_item,row)
+		if item>=0:
+			game.button(words("Перенести","Move"),func(): move_source=slot; slot=-1; message=words("Выбери место. Если оно занято, растения поменяются местами.","Choose a place. Occupied places will swap."); show(),row)
+			game.button(words("Убрать · +","Remove · +")+str(Rules.ITEMS[item][2]),remove_item)
 	else:
 		HUD.text(hud.content,task_title(),29)
 		HUD.text(hud.content,words("Потяни сад пальцем, чтобы осмотреть его.","Drag to explore your garden."),21,HUD.SOFT)
 		var row:=HBoxContainer.new(); hud.content.add_child(row)
 		game.button(words("К цели","Next task"),focus_task,row,true)
 		game.button(words("Оформить","Decorate"),open_shop,row)
+		game.button(words("День / вечер","Day / evening"),toggle_evening,row)
+	if move_source>=0: game.button(words("Отменить перенос","Cancel move"),func(): move_source=-1; message=""; show())
 	if not message.is_empty(): game.label(message,20)
 	hud.nav([[words("Участки","Areas"),areas],[words("Букеты","Bouquets"),help],[words("Играть","Play"),modes]])
 
@@ -182,6 +192,10 @@ func focus_task() -> void:
 	select_place("plot",Rules.next_empty(g())); map_view.focus_place("plot",slot)
 
 func select_place(kind: String,index: int) -> void:
+	if move_source>=0:
+		if kind!="plot": return
+		message=words("Место изменено.","Place changed.") if game.store.garden_transaction(func(data): return Rules.move(data,move_source,index)) else words("Изменение не сохранено.","Change was not saved.")
+		move_source=-1; slot=index; repair_index=-1; show(); return
 	pending=-1; message=""
 	slot=index if kind=="plot" else -1
 	repair_index=index if kind=="repair" else -1
@@ -255,7 +269,13 @@ func show_repair() -> void:
 	var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 	HUD.text(copy,title_of(item),28)
 	if repair_index in g().repairs:
-		HUD.text(copy,words("Восстановлено! Этот уголок снова живёт.","Restored! This corner is alive again."),22,HUD.SOFT)
+		HUD.text(copy,words("Восстановлено! Выбери оформление бесплатно.","Restored! Choose a free style."),22,HUD.SOFT)
+		var styles:=HBoxContainer.new(); game.root_box.add_child(styles)
+		for choice in 3:
+			var names: Array=[words("Луговой","Meadow"),words("Романтика","Romantic"),words("Солнечный","Sunny")]
+			game.button(names[choice],func():
+				if not game.store.garden_transaction(func(data): return Story.style(data,repair_index,choice)): message=words("Не удалось сохранить.","Could not save.")
+				show(),styles,int(g().story.styles.get(str(repair_index),0))==choice)
 	else:
 		var ready: bool=(repair_index==0 or repair_index-1 in g().repairs) and g().plots.size()>=item[3]
 		HUD.text(copy,words("Так будет выглядеть наш следующий шаг.","This is what we are working towards."),21,HUD.SOFT)
@@ -273,11 +293,15 @@ func restore() -> void:
 		game.sound.play_match("win")
 	else: message=words("Не удалось сохранить восстановление.","Could not save the restoration.")
 	show()
+	if not game.store.data.settings.reduce_motion:
+		map_view.modulate.a=.55
+		map_view.create_tween().tween_property(map_view,"modulate:a",1.0,.45)
 
 func help() -> void:
 	game.clear_page("garden_help"); game.header(words("Лавка Джека","Jack's flower stall"))
 	game.label(wallet(),30)
 	game.label(words("Букеты для соседей","Bouquets for neighbours"),35)
+	game.button(words("Заказы друзей","Orders from friends"),func(): Journal.new(self).orders(),null,true)
 	game.label(words("Каждые 10 новых уровней и 3 клумбы позволяют продать один букет за 40 монет. Цветы остаются расти в саду. Ожидания нет.","Every 10 new levels and 3 flowerbeds let Jack sell one bouquet for 40 coins. The flowers stay in your garden. No waiting."),24)
 	game.label(words("Клумбы: %d/3 · уровни: %d/%d","Flowerbeds: %d/3 · levels: %d/%d") % [Rules.flowers(g()),g().earned.size(),(int(g().orders)+1)*10],24)
 	game.button(words("Продать букет · +40 монет","Sell bouquet · +40 coins"),sell_order,null,true).disabled=not Rules.order_ready(g())
@@ -288,4 +312,10 @@ func help() -> void:
 func sell_order() -> void:
 	if game.store.garden_transaction(func(data): return Rules.deliver(data)): message=words("Букет продан. +40 монет!","Bouquet sold. +40 coins!")
 	else: message=words("Заказ пока недоступен или не сохранён.","Order unavailable or could not be saved.")
+	show()
+
+func toggle_evening() -> void:
+	if 4 not in g().story.claimed:
+		message=words("Вечер откроется в истории после 12 уровней и первого заказа.","Evening unlocks in the story after 12 levels and your first order."); show(); return
+	if not game.store.garden_transaction(func(data): data.story.evening=not data.story.evening; return true): message=words("Не удалось сохранить.","Could not save.")
 	show()
