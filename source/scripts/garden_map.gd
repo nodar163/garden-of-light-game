@@ -2,6 +2,7 @@ extends Control
 signal place_selected(kind: String,index: int)
 signal view_changed(camera: Array)
 signal cat_selected
+signal tapped
 const Rules=preload("res://scripts/garden_rules.gd")
 const Flowers=preload("res://scripts/match_art.gd")
 const BACKGROUND=preload("res://assets/garden-world.png")
@@ -98,7 +99,7 @@ func _gui_input(event: InputEvent) -> void:
 				dragging=true; distance=0; focus_index=-1; grab_focus()
 			elif dragging:
 				dragging=false; changed()
-				if distance<12: select_at(event.position)
+				if distance<12: tapped.emit(); select_at(event.position)
 			accept_event()
 	elif event is InputEventMouseMotion and dragging:
 		distance+=event.relative.length(); camera-=event.relative/zoom

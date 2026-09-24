@@ -28,7 +28,9 @@ func run() -> void:
 	root.get_texture().get_image().save_png("res://artifacts/photo-clean.png")
 	var stage: Control=game.root_box.get_child(0)
 	var scene: Control=stage.get_child(0)
-	scene.place_selected.emit("plot",0)
+	var press:=InputEventMouseButton.new(); press.button_index=MOUSE_BUTTON_LEFT; press.pressed=true; press.position=Vector2(10,10)
+	var release:=InputEventMouseButton.new(); release.button_index=MOUSE_BUTTON_LEFT; release.position=Vector2(10,10)
+	scene._gui_input(press); scene._gui_input(release)
 	check(photo_buttons[0].visible,"touch returns controls")
 	photo_buttons[0].pressed.emit(); await process_frame
 	check(game.page=="garden","return keeps game")

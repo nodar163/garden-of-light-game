@@ -346,5 +346,5 @@ func photo() -> void:
 	hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.position=Vector2(20,88); hint.size=Vector2(300,110); hint.mouse_filter=Control.MOUSE_FILTER_IGNORE; stage.add_child(hint)
 	var hide:=Timer.new(); hide.one_shot=true; hide.wait_time=3.0; stage.add_child(hide)
 	hide.timeout.connect(func(): if is_instance_valid(back): back.visible=false; hint.visible=false)
-	scene.place_selected.connect(func(_kind: String,_index: int): back.visible=true; hint.visible=true; hide.start())
+	scene.tapped.connect(func(): back.visible=true; hint.visible=true; hide.start())
 	hide.start()

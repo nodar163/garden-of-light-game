@@ -122,7 +122,7 @@ const originalFetch = window.fetch.bind(window);
 window.fetch = async function(input, options) {
   const url = typeof input === 'string' ? input : input.url;
   if (url && new URL(url, location.href).pathname.endsWith('/index.pck')) {
-    return originalFetch(new URL('index.pck?v=ab2c7b332a5d', location.href), options);
+    return originalFetch(new URL('index.pck?v=2f743977764f', location.href), options);
   }
   if (url && new URL(url, location.href).pathname.endsWith('/index.wasm')) {
     if (!('DecompressionStream' in window)) {
