@@ -183,7 +183,7 @@ func show() -> void:
 		game.button(words("День / вечер","Day / evening"),toggle_evening,row)
 	if move_source>=0: game.button(words("Отменить перенос","Cancel move"),func(): move_source=-1; message=""; show())
 	if not message.is_empty(): game.label(message,20)
-	hud.nav([[words("Участки","Areas"),areas],[words("Букеты","Bouquets"),help],[words("Играть","Play"),modes]])
+	hud.nav([[words("Участки","Areas"),areas],[words("Фото","Photo"),photo],[words("Букеты","Bouquets"),help],[words("Играть","Play"),modes]])
 
 func areas() -> void:
 	var popup:=PopupMenu.new(); game.add_child(popup)
@@ -331,3 +331,20 @@ func toggle_evening() -> void:
 
 func journey() -> void:
 	Journal.new(self).journey()
+
+func photo() -> void:
+	game.clear_page("garden_photo")
+	var stage:=Control.new(); stage.size_flags_vertical=Control.SIZE_EXPAND_FILL; game.root_box.add_child(stage)
+	var scene:=Map.new(); scene.garden=g(); scene.interactive=true; scene.editing=false; scene.reduced=game.store.data.settings.reduce_motion
+	stage.add_child(scene); scene.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	scene.view_changed.connect(save_view)
+	var back: Button=game.button(words("‹ Вернуться","‹ Back"),open_garden,stage)
+	back.position=Vector2(20,20); back.custom_minimum_size=Vector2(180,64)
+	var hint:=Label.new(); hint.text=words("Кнопка исчезнет. Нажми на сад, чтобы вернуть её. Сделай снимок экрана на телефоне.","The button will hide. Tap the garden to bring it back. Take a screenshot on your phone.")
+	hint.add_theme_font_size_override("font_size",20); hint.add_theme_color_override("font_color",Color.WHITE)
+	hint.add_theme_color_override("font_outline_color",Color("234939")); hint.add_theme_constant_override("outline_size",5)
+	hint.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; hint.position=Vector2(20,88); hint.size=Vector2(300,110); hint.mouse_filter=Control.MOUSE_FILTER_IGNORE; stage.add_child(hint)
+	var hide:=Timer.new(); hide.one_shot=true; hide.wait_time=3.0; stage.add_child(hide)
+	hide.timeout.connect(func(): if is_instance_valid(back): back.visible=false; hint.visible=false)
+	scene.place_selected.connect(func(_kind: String,_index: int): back.visible=true; hint.visible=true; hide.start())
+	hide.start()

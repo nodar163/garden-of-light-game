@@ -119,7 +119,7 @@ func _layout() -> void:
 		if physical.y > 0:
 			top += int(safe.position.y * size.y / physical.y)
 			bottom += int((physical.y-safe.end.y) * size.y / physical.y)
-	if page in ["home","garden","garden_modes","garden_shop"]: edge=0; top=0; bottom=0
+	if page in ["home","garden","garden_modes","garden_shop","garden_photo"]: edge=0; top=0; bottom=0
 	shell.add_theme_constant_override("margin_left", edge)
 	shell.add_theme_constant_override("margin_right", edge)
 	shell.add_theme_constant_override("margin_top", top)
