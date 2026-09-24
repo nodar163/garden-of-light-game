@@ -96,10 +96,9 @@ func _gui_input(event: InputEvent) -> void:
 		elif event.button_index==MOUSE_BUTTON_LEFT:
 			if event.pressed:
 				if camera_tween: camera_tween.kill()
-				dragging=true; distance=0; focus_index=-1; grab_focus()
+				dragging=true; distance=0; focus_index=-1; grab_focus(); tapped.emit()
 			elif dragging:
 				dragging=false; changed()
-				tapped.emit()
 				if distance<12: select_at(event.position)
 			accept_event()
 	elif event is InputEventMouseMotion and dragging:
