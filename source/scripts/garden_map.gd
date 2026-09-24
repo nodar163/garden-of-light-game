@@ -99,7 +99,8 @@ func _gui_input(event: InputEvent) -> void:
 				dragging=true; distance=0; focus_index=-1; grab_focus()
 			elif dragging:
 				dragging=false; changed()
-				if distance<12: tapped.emit(); select_at(event.position)
+				tapped.emit()
+				if distance<12: select_at(event.position)
 			accept_event()
 	elif event is InputEventMouseMotion and dragging:
 		distance+=event.relative.length(); camera-=event.relative/zoom

@@ -32,6 +32,12 @@ func run() -> void:
 	var release:=InputEventMouseButton.new(); release.button_index=MOUSE_BUTTON_LEFT; release.position=Vector2(10,10)
 	scene._gui_input(press); scene._gui_input(release)
 	check(photo_buttons[0].visible,"touch returns controls")
+	photo_buttons[0].visible=false
+	scene._gui_input(press)
+	var move:=InputEventMouseMotion.new(); move.position=Vector2(30,10); move.relative=Vector2(20,0)
+	scene._gui_input(move)
+	release.position=Vector2(30,10); scene._gui_input(release)
+	check(photo_buttons[0].visible,"slight pan returns controls")
 	photo_buttons[0].pressed.emit(); await process_frame
 	check(game.page=="garden","return keeps game")
 	game.queue_free(); await process_frame; await create_timer(.15).timeout
