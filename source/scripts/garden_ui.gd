@@ -44,7 +44,7 @@ func intro(start: int=-1) -> void:
 	if start>=0: story_step=start
 	else: story_step=int(g().intro_step)
 	game.clear_page("intro")
-	game.label(words("САД СВЕТА · ИСТОРИЯ ДЖЕКА","GARDEN OF LIGHT · JACK'S STORY"),22)
+	game.label(words("САД ДЖЕКА · НАЧАЛО","JACK'S GARDEN · THE BEGINNING"),22)
 	game.label([words("Давай знакомиться","Meet Jack"),words("После ночной бури","After the storm"),words("Начнём с одного цветка","One flower at a time"),words("Первые цветы снова дома","The first flowers are home")][story_step],40)
 	if story_step==1:
 		make_map(430,false)

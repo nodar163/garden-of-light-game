@@ -59,6 +59,7 @@ func _ready() -> void:
 		if arg.begins_with("--capture="):
 			store = Saves.new("user://capture-progress.json")
 	store.load_data()
+	get_window().title=words("Сад Джека","Jack's Garden")
 	var match_data: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://match_levels/levels.json"))
 	if match_data is Array and match_data.size() == 250:
 		match_levels = match_data
@@ -376,6 +377,7 @@ func show_settings() -> void:
 		button(setting[1] + "  ·  " + (words("Вкл", "On") if store.data.settings[key] else words("Выкл", "Off")), toggle.bind(key))
 	button("Язык / Language  ·  " + ("Русский" if store.data.settings.language == "ru" else "English"), func():
 		store.data.settings.language = "en" if store.data.settings.language == "ru" else "ru"
+		get_window().title=words("Сад Джека","Jack's Garden")
 		persist()
 		show_settings())
 	spacer()
@@ -401,7 +403,7 @@ func show_licenses() -> void:
 	content.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	content.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	content.add_theme_font_size_override("font_size", 18)
-	content.text = "Garden of Light — original vector artwork and synthesized audio.\n\nGodot Engine\n" + Engine.get_license_text() + "\n\nThird-party notices\n"
+	content.text = "Jack's Garden — original artwork and synthesized audio.\n\nGodot Engine\n" + Engine.get_license_text() + "\n\nThird-party notices\n"
 	for item in Engine.get_copyright_info():
 		content.text += str(item) + "\n\n"
 	for name_value in Engine.get_license_info():

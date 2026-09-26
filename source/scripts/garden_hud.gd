@@ -54,7 +54,7 @@ func _init(host: Control,screen: String) -> void:
 	if screen!="home":
 		var back: Button=game.button("‹",game.show_home,top); back.custom_minimum_size=Vector2(76,76); back.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; back.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; back.add_theme_font_size_override("font_size",40); icon_button(back,BACK); back.tooltip_text=game.words("Главное меню","Main menu")
 	var brand:=VBoxContainer.new(); brand.mouse_filter=Control.MOUSE_FILTER_IGNORE; brand.size_flags_horizontal=Control.SIZE_EXPAND_FILL; top.add_child(brand)
-	var heading: String=game.words("САД СВЕТА","GARDEN OF LIGHT") if screen=="home" else game.words("РЕЖИМЫ","GAME MODES") if screen=="garden_modes" else game.words("ЛАВКА","FLOWER SHOP") if screen=="garden_shop" else game.words("МОЙ САД","MY GARDEN")
+	var heading: String=game.words("САД ДЖЕКА","JACK'S GARDEN") if screen=="home" else game.words("РЕЖИМЫ","GAME MODES") if screen=="garden_modes" else game.words("ЛАВКА","FLOWER SHOP") if screen=="garden_shop" else game.words("МОЙ САД","MY GARDEN")
 	var name_label:=text(brand,heading,30,Color("fff9dd"))
 	name_label.add_theme_color_override("font_outline_color",Color("234939")); name_label.add_theme_constant_override("outline_size",8)
 	var subtitle:=text(brand,game.words("История Джека","Jack's story"),20,Color("fff9dd"))
