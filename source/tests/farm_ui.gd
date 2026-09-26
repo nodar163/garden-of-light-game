@@ -46,8 +46,11 @@ func run() -> void:
 	game.garden_ui.business.shop(); await capture("shop-ru")
 	check(game.page=="business_shop","flower shop opens")
 	game.garden_ui.business.change_pick(0,1)
+	game.garden_ui.business.choose_wrap(1); await capture("bouquet-ru")
 	game.garden_ui.business.sell_bouquet()
 	check(game.store.data.garden.farm.orders_done==1,"UI sale saves order")
+	check(game.page=="bouquet_result" and game.store.data.garden.farm.album.size()==1 and int(game.store.data.garden.farm.album[0].wrap)==1,"finished bouquet and wrapper appear in album")
+	await capture("sale-result-ru")
 	game.store.data.garden.repairs=[0,1,2,3]
 	check(game.store.garden_transaction(func(data): return Farm.build_garden(data,0)),"seed pavilion saves through UI store")
 	check(game.store.garden_transaction(func(data): return Farm.build_garden(data,1)),"bouquet workshop saves through UI store")

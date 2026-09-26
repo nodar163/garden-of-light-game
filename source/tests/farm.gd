@@ -41,26 +41,37 @@ func _initialize() -> void:
 	check(Farm.upgrade(fresh, 0), "bed upgrade buys extra harvest")
 	for i in 3: Farm.grow(fresh)
 	check(Farm.harvest(fresh, 0) == 3, "upgraded bed produces three stems")
-	check(Farm.story_ready({"repairs": [0, 1], "farm": Farm.defaults()}, 0), "Lily arrives after fountain")
+	check(Farm.story_ready({"repairs": [0, 1], "farm": Farm.defaults()}, 0), "Lily arrives after gate repair")
+	var early: Dictionary = Garden.defaults()
+	early.earned = ["light:1", "match:1", "light:2"]
+	check(Farm.story_ready(early,0),"Lily appears after three wins in either mode")
 	var story_g: Dictionary = Garden.defaults()
 	story_g.repairs = [0, 1]
 	check(Farm.claim_story(story_g, 0), "first scene claims once")
 	check(not Farm.claim_story(story_g, 0), "scene cannot duplicate")
 	story_g.repairs = [0, 1, 2, 3]
 	story_g.farm.orders_done = 25
-	story_g.coins = 5000
+	story_g.coins = 10000
 	check(Farm.claim_story(story_g, 1) and Farm.claim_story(story_g, 2), "chapters follow repair and sales")
 	for tier in 3:
 		check(Farm.build_shop(story_g), "shop tier %d builds" % tier)
 		check(Farm.claim_story(story_g, tier + 3), "shop tier %d opens scene" % tier)
-	check(not Farm.build_shop(story_g), "shop caps at three tiers")
+	for id in range(1,501): story_g.earned.append("light:"+str(id) if id<=250 else "match:"+str(id-250))
+	for id in range(6,12):
+		check(Farm.claim_story(story_g,id),"later garden milestone opens chapter %d" % id)
+	for tier in range(3,5):
+		story_g.farm.orders_done=Farm.SHOP_ORDERS[tier]
+		check(Farm.build_shop(story_g), "later shop tier %d builds" % tier)
+	check(not Farm.build_shop(story_g), "shop caps at five tiers")
 	check(Farm.valid(story_g.farm), "shop progression remains valid")
 	var old_farm: Dictionary = Farm.defaults()
-	old_farm.erase("buildings")
+	old_farm.erase("album")
 	var migrated: Dictionary = Garden.defaults()
 	migrated.farm = old_farm
+	check(Garden.valid(migrated), "existing save without album is accepted")
+	old_farm.erase("buildings")
 	Farm.ensure(migrated)
-	check(Farm.valid(migrated.farm) and migrated.farm.buildings.is_empty(), "existing farm save gains buildings safely")
+	check(Farm.valid(migrated.farm) and migrated.farm.buildings.is_empty() and migrated.farm.album.is_empty(), "existing farm save gains buildings and album safely")
 	check(not Farm.build_garden(migrated, 0), "seed pavilion requires greenhouse repair")
 	migrated.repairs = [0, 1, 2, 3]
 	migrated.coins = 1000

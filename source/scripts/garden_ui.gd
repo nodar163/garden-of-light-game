@@ -101,7 +101,11 @@ func home() -> void:
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
 	var new_scene: bool=Farm.story_ready(g(),g().farm.story_seen.size())
-	game.button(words("Новая глава: Джек и Лилия  ›","New chapter: Jack and Lily  ›") if new_scene else words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),business.story if new_scene else journal,hud.content,true)
+	var first_bouquet_ready: bool=false
+	if int(g().farm.orders_done)==0 and not new_scene:
+		for bed in g().farm.beds.values():
+			if int(bed.growth)>=3: first_bouquet_ready=true
+	game.button(words("Новая глава: Джек и Лилия  ›","New chapter: Jack and Lily  ›") if new_scene else words("Собрать первый букет  ›","Make your first bouquet  ›") if first_bouquet_ready else words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),business.story if new_scene else business.nursery if first_bouquet_ready else journal,hud.content,true)
 	var light: bool=g().story.last_mode=="light"
 	var id: int=game.unlocked() if light else game.match_unlocked()
 	hud.play_button((words("Дорожки света","Light paths") if light else words("Цветочный каскад","Flower Cascade"))+words("\nИграть · уровень ","\nPlay · level ")+str(id),func(): game.open_level(id) if light else game.open_match(id))
