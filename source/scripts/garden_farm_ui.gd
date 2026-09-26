@@ -89,7 +89,15 @@ func nursery() -> void:
 		HUD.text(card,spec[1 if english() else 0],22)
 		var bed: Variant=g().farm.beds.get(str(id))
 		if bed is Dictionary:
-			HUD.text(card,words("Рост: %d/3 · сбор: %d","Growth: %d/3 · yield: %d") % [int(bed.growth),int(bed.tier)+1],19,HUD.SOFT)
+			var stage: int=int(bed.growth)
+			var stage_ru: Array=["Семя", "Росток", "Бутон", "Цветёт"]
+			var stage_en: Array=["Seed", "Sprout", "Bud", "Blooming"]
+			HUD.text(card,words(stage_ru[stage],stage_en[stage])+" · %d/3" % stage,19,HUD.SOFT)
+			var growth:=ProgressBar.new(); growth.max_value=3; growth.value=stage; growth.show_percentage=false; growth.custom_minimum_size.y=10
+			growth.add_theme_stylebox_override("background",game.style(Color("d8e0c9"),Color("d8e0c9")))
+			growth.add_theme_stylebox_override("fill",game.style(Color("70b962"),Color("70b962")))
+			card.add_child(growth)
+			HUD.text(card,words("За сбор: %d","Harvest: %d") % (int(bed.tier)+1+(1 if 0 in g().farm.buildings else 0)),18,HUD.SOFT)
 			HUD.text(card,words("В корзине: %d","In basket: %d") % int(g().farm.stock[id]),19,HUD.SOFT)
 			var harvest: Button=game.button(words("Собрать цветы","Harvest flowers"),harvest_bed.bind(id),card,int(bed.growth)>=3)
 			harvest.disabled=int(bed.growth)<3
