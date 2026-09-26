@@ -9,6 +9,9 @@ func run() -> void:
 	board.garden=Rules.defaults()
 	for i in 30: board.garden.plots[str(i)]=i%14
 	board.garden.repairs=[0,1,2,3,4]
+	Rules.Farm.ensure(board.garden)
+	board.garden.farm.shop_tier=3
+	board.garden.farm.buildings=[0,1]
 	board.size=Vector2(432,520)
 	root.add_child(board)
 	await process_frame

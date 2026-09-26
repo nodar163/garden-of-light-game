@@ -9,11 +9,14 @@ const MatchGoals = preload("res://scripts/match_goals.gd")
 const GardenRules=preload("res://scripts/garden_rules.gd")
 const GardenMap=preload("res://scripts/garden_map.gd")
 const GardenUI=preload("res://scripts/garden_ui.gd")
+const Farm=preload("res://scripts/garden_farm.gd")
 const Tutorial=preload("res://scripts/tutorial.gd")
 var garden_ui: RefCounted
 var tutorial: RefCounted
 var light_rewarded:=false
 var match_rewarded:=false
+var light_session_won:=false
+var match_session_won:=false
 var reward_garden_button: Button
 var match_garden_button: Button
 var match_model = MatchRules.new()
@@ -267,6 +270,7 @@ func open_level(id: int) -> void:
 		return
 	store.data.current = id
 	puzzle.setup(levels[id-1], store.data.boards.get(str(id), []))
+	light_session_won=puzzle.won()
 	selected_hint = -1
 	clear_page("play")
 	header(words("ПОЛЯНКА ", "CLEARING ") + "%02d / %d" % [id, LEVEL_COUNT])
@@ -332,6 +336,9 @@ func refresh() -> void:
 	var id: int = int(puzzle.level.id)
 	if victory:
 		if store.complete(id): light_rewarded=true
+		if not light_session_won:
+			Farm.grow(store.data.garden)
+			light_session_won=true
 		status.text=words("Полянка ожила!", "The clearing is alive!")+(words(" +25 садовых монет."," +25 garden coins.") if light_rewarded else words(" Эта награда уже получена."," This reward was already collected."))
 	else:
 		var count := 0
@@ -483,6 +490,7 @@ func open_match(id: int) -> void:
 	if id < 1 or id > match_levels.size() or id > match_unlocked(): return
 	store.data.match3.current=id
 	match_model.setup(match_levels[id-1],store.data.match3.boards.get(str(id),{}))
+	match_session_won=match_model.won()
 	clear_page("match")
 	header(words("КАСКАД ", "CASCADE ")+"%d / 250" % id)
 	label(words(REGION_RU[(id-1)/25],REGION_EN[(id-1)/25]),32)
@@ -556,6 +564,9 @@ func save_match() -> void:
 	if match_model.won() and id not in store.data.match3.completed:
 		store.data.match3.completed.append(id); match_rewarded=true
 	GardenRules.sync(store.data)
+	if match_model.won() and not match_session_won:
+		Farm.grow(store.data.garden)
+		match_session_won=true
 	if not store.write():
 		push_error(store.last_error)
 		if page == "match": match_message.text=words("Не удалось сохранить. Проверьте свободное место.","Could not save. Check free storage.")

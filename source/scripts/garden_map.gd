@@ -2,14 +2,21 @@ extends Control
 signal place_selected(kind: String,index: int)
 signal view_changed(camera: Array)
 signal cat_selected
+signal nursery_selected
+signal shop_selected
 signal tapped
 const Rules=preload("res://scripts/garden_rules.gd")
 const Flowers=preload("res://scripts/match_art.gd")
 const BACKGROUND=preload("res://assets/garden-world.png")
+const SHOP_BUILDING=preload("res://assets/jack-shop.png")
 const BEDS=preload("res://assets/garden-beds.png")
 const DECOR=preload("res://assets/garden-decor.png")
 const WORLD=Vector2(3200,2400)
+const NURSERY_POS=Vector2(.88,.22)
+const BUSINESS_POS=Vector2(.16,.76)
+const EXTRA_POS=[Vector2(.83,.42),Vector2(.35,.69)]
 var garden: Dictionary
+var english:=false
 var interactive:=true
 var editing:=true
 var presentation:=false
@@ -112,6 +119,15 @@ func _gui_input(event: InputEvent) -> void:
 func select_at(point: Vector2) -> void:
 	if screen_point(Vector2(1520,790)).distance_to(point)<maxf(28,70*zoom):
 		cat_selected.emit(); return
+	if screen_point(NURSERY_POS*WORLD).distance_to(point)<maxf(56,165*zoom):
+		nursery_selected.emit(); return
+	if int(garden.get("farm",{}).get("shop_tier",0))>0 and screen_point(BUSINESS_POS*WORLD).distance_to(point)<maxf(58,210*zoom):
+		shop_selected.emit(); return
+	for id in EXTRA_POS.size():
+		if id in garden.get("farm",{}).get("buildings",[]) and screen_point(EXTRA_POS[id]*WORLD).distance_to(point)<maxf(50,125*zoom):
+			if id==0: nursery_selected.emit()
+			else: shop_selected.emit()
+			return
 	var nearest:=-1
 	var best:=maxf(28,76*zoom)
 	for slot in Rules.PLOT_COUNT:
@@ -155,6 +171,20 @@ func _draw() -> void:
 	draw_rect(Rect2(Vector2.ZERO,size),Color("254b32"))
 	draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
 	draw_texture_rect(BACKGROUND,Rect2(Vector2.ZERO,WORLD),false)
+	# The productive nursery and Jack's own shop are separate from the decorative plots.
+	var nursery_point:=NURSERY_POS*WORLD
+	draw_rect(Rect2(nursery_point-Vector2(145,60),Vector2(290,116)),Color(.10,.31,.24,.88))
+	draw_rect(Rect2(nursery_point-Vector2(145,60),Vector2(290,116)),Color("e9d898"),false,5)
+	draw_string(ThemeDB.fallback_font,nursery_point+Vector2(-112,23),"NURSERY" if english else "ОГОРОД",HORIZONTAL_ALIGNMENT_LEFT,-1,43 if english else 49,Color("fff7db"))
+	var tier: int=int(garden.get("farm",{}).get("shop_tier",0))
+	if tier>0:
+		var shop_size:=Vector2(430,420)*(1.0+0.08*(tier-1))
+		draw_texture_rect(SHOP_BUILDING,Rect2(BUSINESS_POS*WORLD-shop_size*Vector2(.5,.72),shop_size),false)
+	for id in EXTRA_POS.size():
+		if id in garden.get("farm",{}).get("buildings",[]):
+			var position: Vector2=EXTRA_POS[id]*WORLD
+			decor(position-Vector2(0,50),150,9 if id==0 else 8)
+			draw_string(ThemeDB.fallback_font,position+Vector2(-95,112),("BEES" if id==0 else "BOUQUETS") if english else ("ПЧЁЛЫ" if id==0 else "БУКЕТЫ"),HORIZONTAL_ALIGNMENT_LEFT,-1,32,Color("fff5d7"))
 	var active_zone: int=visible_area()
 	for slot in sorted_plots:
 		var p: Vector2=Rules.plot_position(slot)*WORLD

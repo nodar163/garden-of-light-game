@@ -43,7 +43,7 @@ func _init(host: Control,screen: String) -> void:
 	game=host; game.clear_page(screen)
 	game.shell.remove_child(game.root_box); game.root_box.queue_free()
 	var stage:=Control.new(); stage.mouse_filter=Control.MOUSE_FILTER_IGNORE; game.shell.add_child(stage)
-	map=Map.new(); map.reduced=game.store.data.settings.reduce_motion; map.garden=game.store.data.garden; map.interactive=true
+	map=Map.new(); map.reduced=game.store.data.settings.reduce_motion; map.english=game.store.data.settings.language=="en"; map.garden=game.store.data.garden; map.interactive=true
 	map.editing=screen=="garden"; map.presentation=screen!="garden"
 	stage.add_child(map); map.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	var margin:=MarginContainer.new(); margin.mouse_filter=Control.MOUSE_FILTER_IGNORE; stage.add_child(margin)

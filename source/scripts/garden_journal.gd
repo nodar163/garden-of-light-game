@@ -26,6 +26,7 @@ func show() -> void:
 		else:
 			game.button(words("Заказы друзей","Orders from friends") if step==3 else words("Восстановить сад","Restore the garden") if step in [0,2,5,6,7,8] else words("Выбрать уровень","Choose a level"),orders if step==3 else ui.open_shop if step==0 else ui.focus_task if step in [2,5,6,7,8] else ui.modes,null,true)
 	game.button(words("Заказы и букеты","Orders and bouquets"),orders)
+	game.button(words("Джек и Лилия · новая история","Jack and Lily · new story"),ui.business.story)
 	game.button(words("Открытия сада","Garden discoveries"),journey)
 	game.button(words("Альбом цветов","Flower album"),album)
 	for id in ui.g().story.claimed:

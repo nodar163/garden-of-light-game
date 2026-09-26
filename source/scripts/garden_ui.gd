@@ -5,6 +5,8 @@ const HUD=preload("res://scripts/garden_hud.gd")
 const Rules=preload("res://scripts/garden_rules.gd")
 const Map=preload("res://scripts/garden_map.gd")
 const Art=preload("res://scripts/match_art.gd")
+const Farm=preload("res://scripts/garden_farm.gd")
+const Business=preload("res://scripts/garden_farm_ui.gd")
 const JACK=preload("res://assets/jack.png")
 var game: Control
 var map_view: Control
@@ -18,8 +20,11 @@ var message:=""
 var tutorial_plant:=false
 var replay:=false
 var story_step:=0
+var business: RefCounted
 
-func _init(host: Control) -> void: game=host
+func _init(host: Control) -> void:
+	game=host
+	business=Business.new(self)
 func words(ru: String,en: String) -> String: return game.words(ru,en)
 func english() -> bool: return game.store.data.settings.language=="en"
 func g() -> Dictionary: return game.store.data.garden
@@ -32,7 +37,7 @@ func save_view(value: Array) -> void:
 		message=words("Не удалось сохранить. Проверьте свободное место.","Could not save. Check free storage.")
 
 func make_map(height: int,interactive: bool=true) -> Control:
-	var view=Map.new(); view.reduced=game.store.data.settings.reduce_motion; view.garden=g(); view.interactive=interactive
+	var view=Map.new(); view.reduced=game.store.data.settings.reduce_motion; view.english=english(); view.garden=g(); view.interactive=interactive
 	view.custom_minimum_size.y=height; view.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	view.selected=slot; view.preview_item=pending
 	game.root_box.add_child(view)
@@ -95,11 +100,12 @@ func home() -> void:
 	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 500; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
-	game.button(words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),journal,hud.content,true)
+	var new_scene: bool=Farm.story_ready(g(),g().farm.story_seen.size())
+	game.button(words("Новая глава: Джек и Лилия  ›","New chapter: Jack and Lily  ›") if new_scene else words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),business.story if new_scene else journal,hud.content,true)
 	var light: bool=g().story.last_mode=="light"
 	var id: int=game.unlocked() if light else game.match_unlocked()
 	hud.play_button((words("Дорожки света","Light paths") if light else words("Цветочный каскад","Flower Cascade"))+words("\nИграть · уровень ","\nPlay · level ")+str(id),func(): game.open_level(id) if light else game.open_match(id))
-	hud.nav([[words("Мой сад","My garden"),open_garden],[words("Режимы","Modes"),modes],[words("Лавка","Shop"),open_shop]])
+	hud.nav([[words("Мой сад","My garden"),open_garden],[words("Огород","Nursery"),business.nursery],[words("Магазин","Flower shop"),business.shop],[words("Режимы","Modes"),modes]])
 	if not game.error_message.is_empty(): HUD.text(hud.content,game.error_message,20,Color("a53636"))
 	if game.store.recovered: HUD.text(hud.content,words("Сохранение восстановлено из копии.","Save recovered from backup."),18)
 
@@ -169,6 +175,8 @@ func guides() -> void:
 func show() -> void:
 	Rules.sync(game.store.data)
 	hud=HUD.new(game,"garden"); map_view=hud.map
+	map_view.nursery_selected.connect(business.nursery)
+	map_view.shop_selected.connect(business.shop)
 	map_view.selected=slot; map_view.preview_item=pending
 	map_view.cat_selected.connect(func(): message=words("Джек: Это Персик. Любит тёплые дорожки и смотреть, как растут цветы.","Jack: This is Peaches. He loves warm paths and watching the flowers grow."); slot=-1; repair_index=-1; show())
 	map_view.place_selected.connect(select_place); map_view.view_changed.connect(save_view)
@@ -196,8 +204,23 @@ func show() -> void:
 		game.button(words("День / вечер","Day / evening"),toggle_evening,row)
 	if move_source>=0: game.button(words("Отменить перенос","Cancel move"),func(): move_source=-1; message=""; show())
 	if not message.is_empty(): game.label(message,20)
-	hud.nav([[words("Участки","Areas"),areas],[words("Фото","Photo"),photo],[words("Заказы","Orders"),help],[words("Играть","Play"),modes]])
+	hud.nav([[words("Огород","Nursery"),business.nursery],[words("Магазин","Flower shop"),business.shop],[words("Режимы","Modes"),modes],[words("Ещё","More"),more_menu]])
 	game.tutorial.maybe_open("garden")
+
+func more_menu() -> void:
+	var popup:=PopupMenu.new(); game.add_child(popup)
+	popup.add_theme_font_size_override("font_size",28); popup.add_theme_constant_override("v_separation",24)
+	for title in [words("Участки сада","Garden areas"),words("Фото сада","Garden photo"),words("Старые заказы","Old orders"),words("История Джека и Лилии","Jack and Lily's story")]: popup.add_item(title)
+	popup.id_pressed.connect(_more_option)
+	popup.popup_hide.connect(popup.queue_free)
+	popup.popup_centered(Vector2i(540,430))
+
+func _more_option(id: int) -> void:
+	match id:
+		0: areas()
+		1: photo()
+		2: help()
+		3: business.story()
 
 func areas() -> void:
 	var popup:=PopupMenu.new(); game.add_child(popup)

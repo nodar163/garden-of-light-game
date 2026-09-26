@@ -1,6 +1,7 @@
 extends RefCounted
 ## All economy operations are deterministic, local and independent of the view.
 const Story=preload("res://scripts/garden_story.gd")
+const Farm=preload("res://scripts/garden_farm.gd")
 const REWARD=25
 const PLOT_COUNT=30
 const ITEMS=[
@@ -34,6 +35,7 @@ static func valid(g: Variant) -> bool:
 	for key in ["coins","orders","intro_step"]:
 		if not typeof(g.get(key)) in [TYPE_INT,TYPE_FLOAT] or float(g[key])!=int(g[key]) or int(g[key])<0: return false
 	if g.has("story") and not Story.valid(g.story): return false
+	if g.has("farm") and not Farm.valid(g.farm): return false
 	if int(g.coins)>1000000 or int(g.orders)>50 or int(g.intro_step)>3: return false
 	if not g.get("intro_done") is bool or not g.get("plots") is Dictionary or not g.get("earned") is Array or not g.get("repairs") is Array: return false
 	if not g.get("camera") is Array or g.camera.size()!=3: return false
@@ -60,6 +62,7 @@ static func sync(data: Dictionary) -> int:
 	if not data.has("garden"): data.garden=defaults()
 	var g: Dictionary=data.garden
 	Story.ensure(g)
+	Farm.ensure(g)
 	g.version=1
 	for i in 3: g.camera[i]=float(g.camera[i])
 	g.coins=int(g.coins); g.orders=int(g.orders); g.intro_step=int(g.intro_step)
