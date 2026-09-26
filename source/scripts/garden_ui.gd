@@ -133,25 +133,38 @@ func open_garden() -> void:
 func modes() -> void:
 	move_source=-1
 	hud=HUD.new(game,"garden_modes"); map_view=hud.map
-	HUD.text(hud.content,words("Как сыграем сегодня?","What shall we play?"),32)
-	HUD.text(hud.content,words("Оба режима приносят монеты в один сад.","Both modes earn coins for the same garden."),22,HUD.SOFT)
+	HUD.text(hud.content,words("Выбери игру","Choose a game"),32)
+	HUD.text(hud.content,words("Первая победа на уровне даёт 25 монет для сада.","A level's first win earns 25 garden coins."),21,HUD.SOFT)
 	for mode in 2:
+		var divider:=HSeparator.new(); hud.content.add_child(divider)
 		var match_mode: bool=mode==0
 		var title: String=words("Цветочный каскад","Flower Cascade") if match_mode else words("Дорожки света","Light paths")
 		var done: int=game.store.data.match3.completed.size() if match_mode else game.store.data.completed.size()
-		var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",20); hud.content.add_child(row)
-		var icon:=TextureRect.new(); icon.texture=Art.icon(0 if match_mode else 1); icon.custom_minimum_size=Vector2(88,88); icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; row.add_child(icon)
+		var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",16); hud.content.add_child(row)
+		var icon:=TextureRect.new(); icon.texture=Art.icon(0 if match_mode else 1); icon.custom_minimum_size=Vector2(72,72); icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; row.add_child(icon)
 		var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 		HUD.text(copy,title,29)
-		HUD.text(copy,words("Три в ряд · ","Match 3 · ") if match_mode else words("Соедини свет · ","Connect light · "),21,HUD.SOFT)
-		HUD.text(copy,words("Пройдено %d из 250","Completed %d of 250") % done,20,HUD.SOFT)
+		HUD.text(copy,words("Меняй цветы, собирай три в ряд.","Swap flowers and match three.") if match_mode else words("Поворачивай дорожки к цветам.","Turn paths towards flowers."),20,HUD.SOFT)
+		HUD.text(copy,words("Пройдено: %d / 250","Completed: %d / 250") % done,19,HUD.SOFT)
 		var buttons:=HBoxContainer.new(); hud.content.add_child(buttons)
 		var play: Callable=func(): game.open_match(game.match_unlocked())
 		var levels: Callable=game.show_match_levels
 		if not match_mode: play=func(): game.open_level(game.unlocked()); levels=game.show_levels
-		game.button(words("Продолжить","Continue"),play,buttons,true)
+		game.button(words("Играть · %d","Play · %d") % (game.match_unlocked() if match_mode else game.unlocked()),play,buttons,true)
 		game.button(words("Все уровни","All levels"),levels,buttons)
-	hud.nav([[words("В сад","Garden"),show],[words("Главная","Home"),game.show_home]])
+	hud.nav([[words("В сад","Garden"),show],[words("Обучение","Guides"),guides]])
+
+func guides() -> void:
+	game.clear_page("guides")
+	game.header(words("Обучение","Guides"))
+	game.label(words("Посмотри короткие подсказки ещё раз","Replay a quick guide"),29)
+	game.label(words("Каждое обучение состоит из трёх коротких шагов.","Each guide has three short steps."),21,game.MUTED)
+	game.spacer()
+	game.button(words("Мой сад — карта и покупки","My garden — map and purchases"),func(): game.tutorial.open("garden"))
+	game.button(words("Дорожки света — как соединять","Light paths — how to connect"),func(): game.tutorial.open("light"))
+	game.button(words("Цветочный каскад — как собирать","Flower Cascade — how to match"),func(): game.tutorial.open("match"))
+	game.spacer()
+	game.button(words("К выбору игры","Back to games"),modes)
 
 func show() -> void:
 	Rules.sync(game.store.data)
@@ -183,7 +196,8 @@ func show() -> void:
 		game.button(words("День / вечер","Day / evening"),toggle_evening,row)
 	if move_source>=0: game.button(words("Отменить перенос","Cancel move"),func(): move_source=-1; message=""; show())
 	if not message.is_empty(): game.label(message,20)
-	hud.nav([[words("Участки","Areas"),areas],[words("Фото","Photo"),photo],[words("Букеты","Bouquets"),help],[words("Играть","Play"),modes]])
+	hud.nav([[words("Участки","Areas"),areas],[words("Фото","Photo"),photo],[words("Заказы","Orders"),help],[words("Играть","Play"),modes]])
+	game.tutorial.maybe_open("garden")
 
 func areas() -> void:
 	var popup:=PopupMenu.new(); game.add_child(popup)

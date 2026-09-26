@@ -122,7 +122,7 @@ const originalFetch = window.fetch.bind(window);
 window.fetch = async function(input, options) {
   const url = typeof input === 'string' ? input : input.url;
   if (url && new URL(url, location.href).pathname.endsWith('/index.pck')) {
-    return originalFetch(new URL('index.pck?v=c21e36336b23', location.href), options);
+    return originalFetch(new URL('index.pck?v=0c2ac027a11c', location.href), options);
   }
   if (url && new URL(url, location.href).pathname.endsWith('/index.wasm')) {
     if (!('DecompressionStream' in window)) {
@@ -138,7 +138,7 @@ window.fetch = async function(input, options) {
 };
 </script><script src="index.js"></script>
 		<script>
-const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":13313136,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
+const GODOT_CONFIG = {"args":[],"canvasResizePolicy":2,"emscriptenPoolSize":8,"ensureCrossOriginIsolationHeaders":false,"executable":"index","experimentalVK":false,"fileSizes":{"index.pck":13321312,"index.wasm":39514754},"focusCanvas":true,"gdextensionLibs":[],"godotPoolSize":4,"serviceWorker":"index.service.worker.js"};
 const GODOT_THREADS_ENABLED = false;
 const engine = new Engine(GODOT_CONFIG);
 

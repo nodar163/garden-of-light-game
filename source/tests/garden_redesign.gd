@@ -38,12 +38,12 @@ func run() -> void:
 	check(game.garden_ui.map_view.size.y==game.size.y,"garden fills home height")
 	var coins: int=game.store.data.garden.coins
 	game.garden_ui.modes(); await capture("modes-mobile"); layout_check()
-	var plays: Array=buttons(game.shell).filter(func(b): return b.text=="Продолжить")
-	check(plays.size()==2,"both modes have a continue action")
+	var plays: Array=buttons(game.shell).filter(func(b): return b.text.begins_with("Играть · "))
+	check(plays.size()==2,"both modes have a play action")
 	plays[1].pressed.emit(); await process_frame
 	check(game.page=="play" and int(game.puzzle.level.id)==31,"light mode resumes first unfinished level")
 	game.show_home(); game.garden_ui.modes(); await process_frame
-	plays=buttons(game.shell).filter(func(b): return b.text=="Продолжить")
+	plays=buttons(game.shell).filter(func(b): return b.text.begins_with("Играть · "))
 	plays[0].pressed.emit(); await process_frame
 	check(game.page=="match","match mode opens from modes")
 	game.garden_ui.focus_task(); await capture("goal-mobile"); layout_check()

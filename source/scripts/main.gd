@@ -9,7 +9,9 @@ const MatchGoals = preload("res://scripts/match_goals.gd")
 const GardenRules=preload("res://scripts/garden_rules.gd")
 const GardenMap=preload("res://scripts/garden_map.gd")
 const GardenUI=preload("res://scripts/garden_ui.gd")
+const Tutorial=preload("res://scripts/tutorial.gd")
 var garden_ui: RefCounted
+var tutorial: RefCounted
 var light_rewarded:=false
 var match_rewarded:=false
 var reward_garden_button: Button
@@ -79,6 +81,7 @@ func _ready() -> void:
 	add_child(sound)
 	sound.configure(store.data.settings)
 	garden_ui=GardenUI.new(self)
+	tutorial=Tutorial.new(self)
 	get_tree().auto_accept_quit = false
 	resized.connect(_layout)
 	if store.data.garden.intro_done: show_home()
@@ -292,6 +295,7 @@ func open_level(id: int) -> void:
 	notice = label("", 18, MUTED)
 	refresh()
 	persist()
+	tutorial.maybe_open("light")
 
 func on_tile(index: int) -> void:
 	if puzzle.turn(index):
@@ -521,6 +525,7 @@ func open_match(id: int) -> void:
 	match_garden_button=button(words("Улучшить сад", "Improve the garden"),show_garden)
 	refresh_match()
 	save_match()
+	tutorial.maybe_open("match")
 
 func refresh_match() -> void:
 	if page != "match": return

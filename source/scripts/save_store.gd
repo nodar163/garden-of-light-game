@@ -10,12 +10,16 @@ func _init(location: String = "user://progress.json") -> void:
 	data = defaults()
 
 static func defaults() -> Dictionary:
-	return {"version":1, "completed":[], "current":1, "boards":{}, "match3":{"current":1,"completed":[],"boards":{}}, "garden":Garden.defaults(), "settings":{"language":"ru", "music":true, "sound":true, "reduce_motion":false}}
+	return {"version":1, "completed":[], "current":1, "boards":{}, "match3":{"current":1,"completed":[],"boards":{}}, "garden":Garden.defaults(), "tutorial_seen":[], "settings":{"language":"ru", "music":true, "sound":true, "reduce_motion":false}}
 
 static func valid(value: Variant) -> bool:
 	if not value is Dictionary or value.get("version") != 1:
 		return false
 	if value.has("garden") and not Garden.valid(value.garden): return false
+	if value.has("tutorial_seen"):
+		if not value.tutorial_seen is Array: return false
+		for key in value.tutorial_seen:
+			if key not in ["garden","light","match"]: return false
 	if not value.get("completed") is Array or not value.get("boards") is Dictionary or not value.get("settings") is Dictionary:
 		return false
 	if not typeof(value.get("current")) in [TYPE_INT, TYPE_FLOAT] or float(value.current) != int(value.current) or int(value.current) < 1:

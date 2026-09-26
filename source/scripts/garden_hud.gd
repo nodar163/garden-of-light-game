@@ -93,10 +93,17 @@ func play_button(title: String,action: Callable) -> Button:
 	return b
 
 func nav(items: Array) -> void:
-	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",12); footer.add_child(row)
+	var row: Container
+	if items.size()>=4:
+		var grid:=GridContainer.new(); grid.columns=2; grid.add_theme_constant_override("h_separation",10); grid.add_theme_constant_override("v_separation",10); row=grid
+	else:
+		var strip:=HBoxContainer.new(); strip.add_theme_constant_override("separation",12); row=strip
+	footer.add_child(row)
 	for item in items:
 		var b: Button=game.button(item[0],item[1],row)
-		b.custom_minimum_size.y=76; b.add_theme_font_size_override("font_size",23)
+		b.custom_minimum_size.y=64 if items.size()>=4 else 76
+		b.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+		b.add_theme_font_size_override("font_size",21 if items.size()>=4 else 23)
 
 
 static func icon_button(button: Button,texture: Texture2D) -> void:
