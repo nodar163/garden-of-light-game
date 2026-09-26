@@ -127,7 +127,7 @@ func harvest_bed(id: int) -> void:
 func shop() -> void:
 	Farm.ensure(g())
 	_screen("business_shop",words("ЦВЕТОЧНЫЙ МАГАЗИН","FLOWER SHOP"))
-	_art(SHOP,240)
+	_art(Map.decor_texture(6) if int(g().farm.shop_tier)==0 else SHOP,240)
 	_text(words("Витрина Джека · этап %d/3 · репутация %d","Jack's display · stage %d/3 · reputation %d") % [int(g().farm.shop_tier),int(g().farm.reputation)],24)
 	if 3 not in g().repairs: _text(words("Пока работаем из лавки. Восстанови её в саду, чтобы строить магазин.","For now we work from the stall. Restore it in the garden to build the shop."),21)
 	var order: Array=Farm.order(g())
