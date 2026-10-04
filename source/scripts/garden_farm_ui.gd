@@ -2,14 +2,8 @@ extends RefCounted
 ## Nursery, working flower shop and the new story; uses the existing screen shell.
 const Farm=preload("res://scripts/garden_farm.gd")
 const Rules=preload("res://scripts/garden_rules.gd")
-const Map=preload("res://scripts/garden_map.gd")
-const Art=preload("res://scripts/match_art.gd")
 const HUD=preload("res://scripts/garden_hud.gd")
 const Bouquet=preload("res://scripts/bouquet_view.gd")
-const NURSERY=preload("res://assets/flower-nursery.png")
-const SHOP=preload("res://assets/jack-shop.png")
-const LILY=preload("res://assets/lily.png")
-const JACK=preload("res://assets/jack.png")
 
 const SCENES=[
 	["Незваная гостья","An unexpected visitor",
@@ -79,62 +73,47 @@ func _screen(name_value: String,title: String) -> void:
 	scroll.add_child(body)
 	game.root_box=body
 
-func _art(texture: Texture2D,height: int) -> void:
-	var image:=TextureRect.new()
-	image.texture=texture
-	image.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-	image.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	image.custom_minimum_size.y=height
-	image.size_flags_horizontal=Control.SIZE_EXPAND_FILL
-	image.mouse_filter=Control.MOUSE_FILTER_IGNORE
-	game.root_box.add_child(image)
+func _art(kind: String,height: int,variant: int=0) -> void:
+	var image=preload("res://scripts/model_preview.gd").new(); image.kind=kind; image.variant=variant
+	image.custom_minimum_size.y=height; image.size_flags_horizontal=Control.SIZE_EXPAND_FILL; game.root_box.add_child(image)
 
 func _text(value: String,font_size: int=24) -> void:
 	HUD.text(game.root_box,value,font_size,Color("fff7dc"))
 
 func nursery() -> void:
+	place("nursery")
+
+func place(kind: String) -> void:
 	Farm.ensure(g())
-	_screen("nursery",words("ОГОРОД ДЖЕКА","JACK'S NURSERY"))
-	_art(NURSERY,250)
-	_text(words("Здесь растут цветы для букетов. Сад вокруг остаётся местом для красоты и новых построек.","Grow flowers for bouquets here. The garden outside remains a place to decorate and restore."),23)
-	if not g().farm.seen_guide:
-		var guide:=HUD.card(game.root_box)
-		HUD.text(guide,words("КАК УХАЖИВАТЬ","HOW TO GROW"),27)
-		HUD.text(guide,words("1. Посади сорт в свободную клумбу.\n2. Любая победа, даже повторная, продвинет рост. Через три победы цветы готовы.\n3. Собери их и отнеси в магазин. Улучшение клумбы увеличивает урожай.","1. Plant a variety in a free bed.\n2. Any win, including a replay, grows it. Flowers are ready after three wins.\n3. Harvest and take them to the shop. Upgrades raise the yield."),22,HUD.SOFT)
-		game.button(words("Понятно","Got it"),func(): if game.store.garden_transaction(func(data): data.farm.seen_guide=true; return true): nursery(),guide,true)
-	_text(words("Корзина: %d цветков · Продано букетов: %d","Basket: %d stems · Bouquets sold: %d") % [_stock_total(),g().farm.orders_done],23)
-	var grid:=GridContainer.new(); grid.columns=2; grid.size_flags_horizontal=Control.SIZE_EXPAND_FILL; grid.custom_minimum_size.x=maxf(0,game.get_viewport_rect().size.x-64); grid.add_theme_constant_override("h_separation",12); grid.add_theme_constant_override("v_separation",12); game.root_box.add_child(grid)
-	for id in Farm.SPECIES.size():
-		var spec: Array=Farm.SPECIES[id]
-		var card:=HUD.card(grid); card.get_parent().size_flags_horizontal=Control.SIZE_EXPAND_FILL
-		var flower:=TextureRect.new(); flower.texture=Map.bed_texture(id); flower.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; flower.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; flower.custom_minimum_size=Vector2(0,126); card.add_child(flower)
-		HUD.text(card,spec[1 if english() else 0],22)
-		var bed: Variant=g().farm.beds.get(str(id))
-		if bed is Dictionary:
-			var stage: int=int(bed.growth)
-			var stage_ru: Array=["Семя", "Росток", "Бутон", "Цветёт"]
-			var stage_en: Array=["Seed", "Sprout", "Bud", "Blooming"]
-			HUD.text(card,words(stage_ru[stage],stage_en[stage])+" · %d/3" % stage,19,HUD.SOFT)
-			var growth:=ProgressBar.new(); growth.max_value=3; growth.value=stage; growth.show_percentage=false; growth.custom_minimum_size.y=10
-			growth.add_theme_stylebox_override("background",game.style(Color("d8e0c9"),Color("d8e0c9")))
-			growth.add_theme_stylebox_override("fill",game.style(Color("70b962"),Color("70b962")))
-			card.add_child(growth)
-			HUD.text(card,words("За сбор: %d","Harvest: %d") % (int(bed.tier)+1+(1 if 0 in g().farm.buildings else 0)),18,HUD.SOFT)
-			HUD.text(card,words("В корзине: %d","In basket: %d") % int(g().farm.stock[id]),19,HUD.SOFT)
-			var harvest: Button=game.button(words("Собрать цветы","Harvest flowers"),harvest_bed.bind(id),card,int(bed.growth)>=3)
-			harvest.disabled=int(bed.growth)<3
-			if int(bed.tier)<3:
-				var upgrade: Button=game.button(words("Улучшить · %d монет","Upgrade · %d coins") % (90*int(bed.tier)),upgrade_bed.bind(id),card)
-				upgrade.disabled=int(g().coins)<90*int(bed.tier)
-		else:
-			HUD.text(card,words("Свободная клумба","Empty flowerbed"),19,HUD.SOFT)
-			var plant: Button=game.button(words("Посадить · %d","Plant · %d") % int(spec[7]),plant_bed.bind(id),card,true)
-			plant.disabled=g().earned.size()<int(spec[6]) or int(g().coins)<int(spec[7])
-			if g().earned.size()<int(spec[6]): HUD.text(card,words("Откроется после %d побед","Unlocks after %d wins") % int(spec[6]),17,HUD.SOFT)
-		HUD.text(card,words("Аромат %d · Стойкость %d · Урожай %d","Scent %d · Freshness %d · Yield %d") % [int(spec[3]),int(spec[4]),int(spec[5])],17,HUD.SOFT)
-	if not message.is_empty(): _text(message,21)
-	game.button(words("В цветочный магазин","Visit the flower shop"),shop,null,true)
-	game.button(words("Вернуться в сад","Back to the garden"),garden_ui.open_garden)
+	game.clear_page("nursery" if kind=="nursery" else "business_shop")
+	var top:=HBoxContainer.new(); game.root_box.add_child(top)
+	var back: Button=game.button(words("‹ Сад","‹ Garden"),garden_ui.open_garden,top)
+	back.custom_minimum_size=Vector2(108,62); back.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; back.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; back.add_theme_font_size_override("font_size",23)
+	var heading: Label=HUD.text(top,words("ОГОРОД","NURSERY") if kind=="nursery" else words("МАГАЗИН","SHOP"),28,Color("fff5d5"))
+	heading.size_flags_horizontal=Control.SIZE_EXPAND_FILL; heading.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
+	var money: Label=HUD.text(top,str(int(g().coins)),23,Color("ffdf8f")); money.vertical_alignment=VERTICAL_ALIGNMENT_CENTER; money.autowrap_mode=TextServer.AUTOWRAP_OFF
+	var map=preload("res://scripts/farm_world_3d.gd").new(); map.game=game; map.mode=kind
+	map.size_flags_vertical=Control.SIZE_EXPAND_FILL; map.size_flags_horizontal=Control.SIZE_EXPAND_FILL
+	var help:=HUD.card(game.root_box)
+	var tip: Label=HUD.text(help,"",22)
+	map.guidance_changed.connect(func(value): tip.text=value; money.text=str(int(g().coins)))
+	game.root_box.add_child(map); game.root_box.move_child(map,1)
+	var options:=HBoxContainer.new(); help.add_child(options)
+	if kind=="nursery":
+		var improve: Button=game.button(words("Выбери грядку","Select a bed"),func():
+			if map.selected_bed>=0 and game.store.garden_transaction(func(data): return Farm.upgrade(data,map.selected_bed)):
+				map.message=words("Грядка улучшена: урожай стал больше.","Bed upgraded: a bigger harvest."); map.refresh()
+		,options)
+		improve.add_theme_font_size_override("font_size",20); improve.custom_minimum_size.y=56; improve.disabled=true
+		map.bed_selected.connect(func(id):
+			var bed: Variant=g().farm.beds.get(str(id))
+			improve.disabled=not bed is Dictionary or int(bed.tier)>=3 or int(g().coins)<90*int(bed.tier)
+			improve.text=words("Улучшить · %d монет","Upgrade · %d coins") % (90*int(bed.tier)) if bed is Dictionary and int(bed.tier)<3 else words("Улучшено","Fully upgraded") if bed is Dictionary else words("Свободная грядка","Empty bed")
+		)
+	else:
+		var improve: Button=game.button(words("Развитие","Upgrades"),upgrades,options); improve.add_theme_font_size_override("font_size",20); improve.custom_minimum_size.y=56
+		var memories: Button=game.button(words("Альбом","Album"),album,options); memories.add_theme_font_size_override("font_size",20); memories.custom_minimum_size.y=56
+	var play: Button=game.button(words("К уровням","Play levels"),garden_ui.modes,options,true); play.add_theme_font_size_override("font_size",20); play.custom_minimum_size.y=56
 
 func _stock_total() -> int:
 	var total:=0
@@ -155,70 +134,28 @@ func harvest_bed(id: int) -> void:
 	nursery()
 
 func shop() -> void:
-	Farm.ensure(g())
-	_screen("business_shop",words("ЦВЕТОЧНЫЙ МАГАЗИН","FLOWER SHOP"))
-	_art(Map.decor_texture(6) if int(g().farm.shop_tier)==0 else SHOP,240)
-	_text(words("Витрина Джека · этап %d/5 · репутация %d","Jack's display · stage %d/5 · reputation %d") % [int(g().farm.shop_tier),int(g().farm.reputation)],24)
-	if 3 not in g().repairs: _text(words("Пока работаем из лавки. Восстанови её в саду, чтобы строить магазин.","For now we work from the stall. Restore it in the garden to build the shop."),21)
-	var order: Array=Farm.order(g())
-	var panel:=HUD.card(game.root_box)
-	HUD.text(panel,words("ПОКУПАТЕЛЬ","CUSTOMER"),19,HUD.SOFT)
-	HUD.text(panel,order[1 if english() else 0],29)
-	HUD.text(panel,order[4 if english() else 3],21,HUD.SOFT)
-	HUD.text(panel,words("Коснись цветков и составь букет. Покупатель ценит: ","Tap flowers to arrange a bouquet. This customer values: ")+words(["аромат","стойкость","пышность"][int(order[2])],["scent","freshness","fullness"][int(order[2])]),20,HUD.SOFT)
-	var preview_art:=Bouquet.new(); preview_art.flowers=bouquet_slots.duplicate(); preview_art.wrap_id=wrap_id; preview_art.custom_minimum_size.y=230; preview_art.mouse_filter=Control.MOUSE_FILTER_IGNORE; panel.add_child(preview_art)
-	var slots:=HBoxContainer.new(); slots.add_theme_constant_override("separation",8); panel.add_child(slots)
-	for position in 3:
-		var occupied: bool=position<bouquet_slots.size()
-		var slot_button: Button=game.button(words("Убрать %d","Remove %d") % (position+1) if occupied else words("Место %d","Slot %d") % (position+1),remove_slot.bind(position),slots)
-		slot_button.custom_minimum_size.y=48; slot_button.add_theme_font_size_override("font_size",17); slot_button.disabled=not occupied
-	HUD.text(panel,words("ЦВЕТЫ В КОРЗИНЕ","FLOWERS IN YOUR BASKET"),18,HUD.SOFT)
-	var choices:=GridContainer.new(); choices.columns=2; panel.add_child(choices)
-	for id in Farm.SPECIES.size():
-		if not g().farm.beds.has(str(id)) and int(g().farm.stock[id])<=0: continue
-		var names_ru: Array=["Космеи","Ромашки","Анемоны","Незабудки","Георгины","Хризантемы"]
-		var names_en: Array=["Cosmos","Daisies","Anemones","Forget-me-nots","Dahlias","Chrysanthemums"]
-		var pick_button: Button=game.button(words(names_ru[id],names_en[id])+" · "+str(int(g().farm.stock[id])-bouquet_slots.count(id)),add_flower.bind(id),choices)
-		pick_button.icon=Art.icon(id); pick_button.expand_icon=true; pick_button.add_theme_constant_override("icon_max_width",48); pick_button.custom_minimum_size.y=74; pick_button.add_theme_font_size_override("font_size",18)
-		pick_button.disabled=bouquet_slots.size()>=3 or bouquet_slots.count(id)>=int(g().farm.stock[id])
-	HUD.text(panel,words("БУМАГА ДЛЯ БУКЕТА","BOUQUET WRAP"),18,HUD.SOFT)
-	var wraps:=HBoxContainer.new(); wraps.add_theme_constant_override("separation",8); panel.add_child(wraps)
-	for id in 3:
-		var wrap_button: Button=game.button(words(["Крафт","Мята","Лаванда"][id],["Kraft","Mint","Lavender"][id])+(" ✓" if wrap_id==id else ""),choose_wrap.bind(id),wraps)
-		wrap_button.custom_minimum_size.y=54; wrap_button.add_theme_font_size_override("font_size",18)
-	var preview: Dictionary=Farm.bouquet(g(),_picked_counts())
-	if preview.get("valid",false):
-		HUD.text(panel,words("Букет: %d монет · репутация +%d","Bouquet: %d coins · reputation +%d") % [int(preview.coins),int(preview.reputation)],23)
-	else: HUD.text(panel,words("Собери хотя бы один цветок в огороде.","Harvest at least one flower in the nursery."),21,HUD.SOFT)
-	var sell_button: Button=game.button(words("Продать букет","Sell bouquet"),sell_bouquet,panel,true)
-	sell_button.disabled=not preview.get("valid",false)
+	place("shop")
+
+func upgrades() -> void:
+	_screen("business_upgrades",words("РАЗВИТИЕ МАГАЗИНА","SHOP UPGRADES"))
+	_text(words("Этап %d/5 · Продано %d букетов","Stage %d/5 · %d bouquets sold") % [int(g().farm.shop_tier),int(g().farm.orders_done)],26)
 	var tier: int=int(g().farm.shop_tier)
 	if tier<Farm.SHOP_PRICES.size():
 		var next:=HUD.card(game.root_box)
-		HUD.text(next,words("СЛЕДУЮЩЕЕ УЛУЧШЕНИЕ","NEXT SHOP UPGRADE"),19,HUD.SOFT)
 		HUD.text(next,words(["Открыть магазин","Расширить витрину","Праздничная вывеска","Мастерская открыток","Городская доставка"][tier],["Open the shop","Expand the display","Festival storefront","Card studio","Town deliveries"][tier]),27)
-		if tier>=3: HUD.text(next,words("Каждый следующий букет принесёт ещё +8 монет.","Each later bouquet earns another 8 coins."),19,HUD.SOFT)
-		HUD.text(next,words("Букеты: %d/%d · цена: %d монет","Bouquets: %d/%d · price: %d coins") % [mini(int(g().farm.orders_done),Farm.SHOP_ORDERS[tier]),Farm.SHOP_ORDERS[tier],Farm.SHOP_PRICES[tier]],20,HUD.SOFT)
-		var build: Button=game.button(words("Улучшить магазин","Upgrade the shop"),build_shop,next,true)
-		build.disabled=not Farm.shop_ready(g())
-	else: _text(words("Магазин сияет! Заказы и сорта продолжают расти вместе с ним.","The shop shines! Orders and varieties can keep growing."),22)
-	var buildings:=HUD.card(game.root_box)
-	HUD.text(buildings,words("НОВЫЕ МЕСТА В САДУ","NEW PLACES IN THE GARDEN"),20,HUD.SOFT)
+		HUD.text(next,words("Букеты %d/%d · %d монет","Bouquets %d/%d · %d coins") % [int(g().farm.orders_done),Farm.SHOP_ORDERS[tier],Farm.SHOP_PRICES[tier]],22)
+		if tier>=3: HUD.text(next,words("+8 монет за каждый следующий букет","+8 coins for each later bouquet"),21)
+		var buy: Button=game.button(words("Улучшить","Upgrade"),func():
+			if game.store.garden_transaction(func(data): return Farm.build_shop(data)): upgrades()
+		,next,true); buy.disabled=not Farm.shop_ready(g())
 	for id in Farm.BUILDINGS.size():
-		var item: Array=Farm.BUILDINGS[id]
-		HUD.text(buildings,words(item[0],item[1]),24)
-		HUD.text(buildings,words("+1 цветок при каждом сборе" if id==0 else "+5 монет за каждый букет","+1 stem from every harvest" if id==0 else "+5 coins for every bouquet"),18,HUD.SOFT)
-		if id in g().farm.buildings:
-			HUD.text(buildings,words("Построено — найди на карте сада","Built — find it on the garden map"),19,HUD.SOFT)
-		else:
-			HUD.text(buildings,words("После ремонта: %s · %d монет","After restoring: %s · %d coins") % [words(Rules.REPAIRS[int(item[3])][0],Rules.REPAIRS[int(item[3])][1]),int(item[2])],18,HUD.SOFT)
-			var button: Button=game.button(words("Построить","Build"),build_garden.bind(id),buildings)
-			button.disabled=not Farm.building_ready(g(),id)
-	if not message.is_empty(): _text(message,21)
-	game.button(words("К сюжетным главам","Story chapters"),story)
-	game.button(words("Альбом букетов","Bouquet album"),album)
-	game.button(words("В огород","To the nursery"),nursery)
-	game.button(words("В сад","Back to the garden"),garden_ui.open_garden)
+		var panel:=HUD.card(game.root_box)
+		HUD.text(panel,words(Farm.BUILDINGS[id][0],Farm.BUILDINGS[id][1]),26)
+		HUD.text(panel,words("+1 цветок при сборе" if id==0 else "+5 монет за букет","+1 stem per harvest" if id==0 else "+5 coins per bouquet"),22)
+		var buy: Button=game.button(words("Построено","Built") if id in g().farm.buildings else words("Построить · %d монет","Build · %d coins") % Farm.BUILDINGS[id][2],func():
+			if game.store.garden_transaction(func(data): return Farm.build_garden(data,id)): upgrades()
+		,panel); buy.disabled=not Farm.building_ready(g(),id)
+	game.button(words("К букетному столу","Back to the bouquet table"),shop)
 
 func _picked_total() -> int:
 	return bouquet_slots.size()
@@ -235,23 +172,23 @@ func change_pick(id: int,delta: int) -> void:
 		if at>=0: remove_slot(at)
 
 func add_flower(id: int) -> void:
-	if id<0 or id>=Farm.SPECIES.size() or bouquet_slots.size()>=3 or bouquet_slots.count(id)>=int(g().farm.stock[id]): return
-	bouquet_slots.append(id)
+	if not game.store.garden_transaction(func(data): return Farm.arrange(data,id)): return
+	bouquet_slots=g().farm.draft.flowers.duplicate()
 	if game.sound!=null: game.sound.chime()
 	shop()
 
 func remove_slot(position: int) -> void:
-	if position<0 or position>=bouquet_slots.size(): return
-	bouquet_slots.remove_at(position)
+	if not game.store.garden_transaction(func(data): return Farm.return_flower(data,position)): return
+	bouquet_slots=g().farm.draft.flowers.duplicate()
 	shop()
 
 func choose_wrap(id: int) -> void:
-	if id<0 or id>2: return
+	if not game.store.garden_transaction(func(data): return Farm.wrap_bouquet(data,id)): return
 	wrap_id=id
 	shop()
 
 func sell_bouquet() -> void:
-	if game.store.garden_transaction(func(data): return Farm.sell(data,_picked_counts(),bouquet_slots,wrap_id)):
+	if game.store.garden_transaction(func(data): return Farm.serve(data)):
 		last_sale=g().farm.album.back().duplicate(true)
 		bouquet_slots.clear()
 		if game.sound!=null: game.sound.play_match("win")
@@ -294,7 +231,7 @@ func build_garden(id: int) -> void:
 func story() -> void:
 	Farm.ensure(g())
 	_screen("lily_story",words("ДЖЕК И ЛИЛИЯ","JACK AND LILY"))
-	_art(LILY,280)
+	_art("person",280,5)
 	_text(words("Лилия вернулась, когда Джек только начал восстанавливать сад. Дальнейшие главы открываются вместе с садом, огородом и магазином.","Lily returned as Jack began restoring the garden. New chapters open as the garden, nursery and shop grow."),23)
 	for id in SCENES.size():
 		if id > g().farm.story_seen.size(): break
@@ -321,7 +258,7 @@ func _requirement(id: int) -> String:
 func scene(id: int) -> void:
 	if id<0 or id>=SCENES.size() or (id not in g().farm.story_seen and not Farm.story_ready(g(),id)): return
 	_screen("lily_scene",SCENES[id][1 if english() else 0])
-	_art(LILY if id in [0,2,4,5,8,10] else JACK if id in [1,3,6,7] else NURSERY,360)
+	_art("person",360,5 if id in [0,2,4,5,8,10] else 4)
 	_text(SCENES[id][3 if english() else 2],27)
 	if id==5 and id not in g().farm.story_seen:
 		_text(words("Что ответит Джек?","What will Jack say?"),25)

@@ -57,6 +57,13 @@ const MUTED = Color("bde5cc")
 func words(ru: String, en: String) -> String:
 	return ru if store.data.settings.language == "ru" else en
 
+func _exit_tree() -> void:
+	# The business controller and garden controller reference each other.
+	# Break that ownership cycle when the game closes, including in scene tests.
+	if garden_ui!=null:
+		if garden_ui.business!=null: garden_ui.business.garden_ui=null
+		garden_ui.business=null; garden_ui.hud=null; garden_ui=null
+
 func _ready() -> void:
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--capture="):
@@ -514,9 +521,9 @@ func open_match(id: int) -> void:
 	root_box.add_child(tools_row)
 	for k in 4:
 		var item:=button("1",select_match_tool.bind(k),tools_row)
-		item.icon=MatchBoard.Art.icon(11+k)
-		item.expand_icon=true
-		item.add_theme_constant_override("icon_max_width",42)
+		var icon=preload("res://scripts/model_preview.gd").new(); icon.kind=["hammer","row","column","rainbow"][k]
+		item.add_child(icon); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_right=-26
+		item.alignment=HORIZONTAL_ALIGNMENT_RIGHT
 		item.custom_minimum_size=Vector2(0,60)
 		item.tooltip_text=words(["Молоточек: убрать клетку","Горизонтальный луч","Вертикальный луч","Перемешать цветы"][k],["Hammer: clear one tile","Clear a row","Clear a column","Shuffle flowers"][k])
 		tool_buttons.append(item)

@@ -34,7 +34,9 @@ const BUILDINGS = [
 static func defaults() -> Dictionary:
 	return {"version": 1, "beds": {}, "stock": [0, 0, 0, 0, 0, 0],
 		"harvested": 0, "orders_done": 0, "reputation": 0,
-		"shop_tier": 0, "buildings": [], "album": [], "story_seen": [], "lily_answer": "", "seen_guide": false}
+		"shop_tier": 0, "buildings": [], "album": [], "prepared": [],
+		"draft": {"flowers": [], "wrap": 0, "wrapped": false},
+		"story_seen": [], "lily_answer": "", "seen_guide": false}
 
 static func ensure(g: Dictionary) -> void:
 	if not g.has("farm"):
@@ -46,11 +48,17 @@ static func ensure(g: Dictionary) -> void:
 				g.farm.beds[str(species)] = {"species": species, "tier": 1, "growth": 0}
 	if not g.farm.has("buildings"): g.farm.buildings = []
 	if not g.farm.has("album"): g.farm.album = []
+	if not g.farm.has("prepared"): g.farm.prepared = []
+	if not g.farm.has("draft"): g.farm.draft = {"flowers": [], "wrap": 0, "wrapped": false}
+	for i in g.farm.prepared.size(): g.farm.prepared[i]=int(g.farm.prepared[i])
+	for i in g.farm.draft.flowers.size(): g.farm.draft.flowers[i]=int(g.farm.draft.flowers[i])
+	g.farm.draft.wrap=int(g.farm.draft.wrap)
 	for key in ["version", "harvested", "orders_done", "reputation", "shop_tier"]:
 		g.farm[key] = int(g.farm[key])
 	for id in g.farm.stock.size(): g.farm.stock[id] = int(g.farm.stock[id])
 	for bed in g.farm.beds.values():
 		for key in ["species", "tier", "growth"]: bed[key] = int(bed[key])
+		if not bed.has("watered"): bed.watered = false
 	for i in g.farm.story_seen.size(): g.farm.story_seen[i] = int(g.farm.story_seen[i])
 	for i in g.farm.buildings.size(): g.farm.buildings[i] = int(g.farm.buildings[i])
 
@@ -59,6 +67,18 @@ static func valid(value: Variant) -> bool:
 	if not value.get("beds") is Dictionary or not value.get("stock") is Array or value.stock.size() != SPECIES.size(): return false
 	if not value.get("story_seen") is Array or not value.get("buildings") is Array or not value.get("seen_guide") is bool: return false
 	if value.has("album") and not value.album is Array: return false
+	if value.has("prepared"):
+		if not value.prepared is Array or value.prepared.size()>6: return false
+		var unique: Array=[]
+		for slot in value.prepared:
+			if not typeof(slot) in [TYPE_INT,TYPE_FLOAT] or float(slot)!=int(slot) or int(slot)<0 or int(slot)>5 or int(slot) in unique: return false
+			unique.append(int(slot))
+	if value.has("draft"):
+		var draft: Variant=value.draft
+		if not draft is Dictionary or not draft.get("flowers") is Array or draft.flowers.size()>3 or not draft.get("wrapped") is bool: return false
+		if not typeof(draft.get("wrap")) in [TYPE_INT,TYPE_FLOAT] or float(draft.wrap)!=int(draft.wrap) or int(draft.wrap)<0 or int(draft.wrap)>2: return false
+		for flower in draft.flowers:
+			if not typeof(flower) in [TYPE_INT,TYPE_FLOAT] or float(flower)!=int(flower) or int(flower)<0 or int(flower)>5: return false
 	for key in ["harvested", "orders_done", "reputation", "shop_tier"]:
 		if not typeof(value.get(key)) in [TYPE_INT, TYPE_FLOAT] or int(value[key]) < 0 or float(value[key]) != int(value[key]): return false
 	if int(value.shop_tier) > SHOP_PRICES.size() or int(value.orders_done) > 100000 or int(value.reputation) > 1000000: return false
@@ -70,6 +90,7 @@ static func valid(value: Variant) -> bool:
 		var bed: Variant = value.beds[slot]
 		if not bed is Dictionary or int(bed.get("species", -1)) < 0 or int(bed.get("species", -1)) >= SPECIES.size(): return false
 		if int(bed.get("tier", -1)) < 1 or int(bed.get("tier", -1)) > 3 or int(bed.get("growth", -1)) < 0 or int(bed.get("growth", -1)) > 3: return false
+		if bed.has("watered") and not bed.watered is bool: return false
 	for scene in value.story_seen:
 		if not typeof(scene) in [TYPE_INT, TYPE_FLOAT] or int(scene) < 0 or int(scene) > 11: return false
 	var built: Dictionary = {}
@@ -105,7 +126,30 @@ static func plant(g: Dictionary, slot: int, species: int) -> bool:
 	var cost: int = int(SPECIES[species][7])
 	if int(g.coins) < cost: return false
 	g.coins -= cost
-	g.farm.beds[str(slot)] = {"species": species, "tier": 1, "growth": 0}
+	g.farm.beds[str(slot)] = {"species": species, "tier": 1, "growth": 0, "watered": false}
+	g.farm.prepared.erase(slot)
+	return true
+
+static func prepare(g: Dictionary, slot: int) -> bool:
+	ensure(g)
+	if slot<0 or slot>5 or g.farm.beds.has(str(slot)) or slot in g.farm.prepared: return false
+	g.farm.prepared.append(slot)
+	return true
+
+static func water(g: Dictionary, slot: int) -> bool:
+	ensure(g)
+	var bed: Variant=g.farm.beds.get(str(slot))
+	if not bed is Dictionary or bed.watered or int(bed.growth)>=3: return false
+	bed.watered=true
+	bed.growth+=1
+	return true
+
+static func uproot(g: Dictionary, slot: int) -> bool:
+	ensure(g)
+	var bed: Variant=g.farm.beds.get(str(slot))
+	if not bed is Dictionary or int(bed.growth)>=3: return false
+	g.farm.beds.erase(str(slot))
+	if slot not in g.farm.prepared: g.farm.prepared.append(slot)
 	return true
 
 static func upgrade(g: Dictionary, slot: int) -> bool:
@@ -133,7 +177,46 @@ static func harvest(g: Dictionary, slot: int) -> int:
 	g.farm.stock[species] += amount
 	g.farm.harvested += amount
 	bed.growth = 0
+	bed.watered = false
 	return amount
+
+static func draft_counts(g: Dictionary) -> Array:
+	ensure(g)
+	var counts: Array=[0,0,0,0,0,0]
+	for id in g.farm.draft.flowers: counts[int(id)]+=1
+	return counts
+
+static func arrange(g: Dictionary, species: int, position: int=-1) -> bool:
+	ensure(g)
+	if species<0 or species>=SPECIES.size() or g.farm.draft.flowers.count(species)>=int(g.farm.stock[species]): return false
+	var flowers: Array=g.farm.draft.flowers
+	if position<0: position=flowers.size()
+	if position<0 or position>flowers.size() or (position==flowers.size() and flowers.size()>=3): return false
+	if position<flowers.size(): flowers[position]=species
+	else: flowers.append(species)
+	g.farm.draft.wrapped=false
+	return true
+
+static func return_flower(g: Dictionary, position: int) -> bool:
+	ensure(g)
+	if position<0 or position>=g.farm.draft.flowers.size(): return false
+	g.farm.draft.flowers.remove_at(position)
+	g.farm.draft.wrapped=false
+	return true
+
+static func wrap_bouquet(g: Dictionary, paper: int) -> bool:
+	ensure(g)
+	if paper<0 or paper>2 or not bouquet(g,draft_counts(g)).get("valid",false): return false
+	g.farm.draft.wrap=paper
+	g.farm.draft.wrapped=true
+	return true
+
+static func serve(g: Dictionary) -> bool:
+	ensure(g)
+	if not g.farm.draft.wrapped: return false
+	if not sell(g,draft_counts(g),g.farm.draft.flowers,int(g.farm.draft.wrap)): return false
+	g.farm.draft={"flowers":[],"wrap":0,"wrapped":false}
+	return true
 
 static func order(g: Dictionary) -> Array:
 	ensure(g)

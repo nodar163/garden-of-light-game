@@ -1,7 +1,6 @@
 extends RefCounted
 ## Floating controls over the actual garden, shared by home and editing.
 const Map=preload("res://scripts/garden_map.gd")
-const JACK=preload("res://assets/jack.png")
 const COIN=preload("res://assets/ui-coin.svg")
 const SETTINGS=preload("res://assets/ui-settings.svg")
 const BACK=preload("res://assets/ui-back.svg")
@@ -32,12 +31,7 @@ static func card(parent: Node) -> VBoxContainer:
 	return box
 
 static func face(parent: Node) -> void:
-	var t:=AtlasTexture.new(); t.atlas=JACK
-	var extent:=Vector2(JACK.get_width(),JACK.get_height())
-	t.region=Rect2(extent*Vector2(.21,.025),extent*Vector2(.57,.42))
-	var v:=TextureRect.new(); v.texture=t; v.custom_minimum_size=Vector2(92,112)
-	v.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; v.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-	v.mouse_filter=Control.MOUSE_FILTER_IGNORE; parent.add_child(v)
+	var v=preload("res://scripts/model_preview.gd").new(); v.kind="person"; v.variant=4; v.custom_minimum_size=Vector2(92,112); parent.add_child(v)
 
 func _init(host: Control,screen: String) -> void:
 	game=host; game.clear_page(screen)

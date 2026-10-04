@@ -4,10 +4,8 @@ const Journal=preload("res://scripts/garden_journal.gd")
 const HUD=preload("res://scripts/garden_hud.gd")
 const Rules=preload("res://scripts/garden_rules.gd")
 const Map=preload("res://scripts/garden_map.gd")
-const Art=preload("res://scripts/match_art.gd")
 const Farm=preload("res://scripts/garden_farm.gd")
 const Business=preload("res://scripts/garden_farm_ui.gd")
-const JACK=preload("res://assets/jack.png")
 var game: Control
 var map_view: Control
 var hud: RefCounted
@@ -54,9 +52,7 @@ func intro(start: int=-1) -> void:
 	if story_step==1:
 		make_map(430,false)
 	else:
-		var portrait:=TextureRect.new(); portrait.texture=JACK
-		portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE
-		portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var portrait=preload("res://scripts/model_preview.gd").new(); portrait.kind="person"; portrait.variant=4
 		portrait.custom_minimum_size.y=390; portrait.size_flags_vertical=Control.SIZE_EXPAND_FILL
 		game.root_box.add_child(portrait)
 	var ru=["Я Джек. Здесь я выращивал цветы и собирал букеты для наших соседей. Для каждого праздника находился свой цветок.","Ночью буря разрушила клумбы, повредила теплицу и закрыла путь к лавке. Но семена уцелели. Поможешь вернуть саду жизнь?","У меня осталось 50 садовых монет — хватит на первые космеи. Потом будем проходить уровни: каждое новое решение принесёт ещё 25 монет.","Посмотри, уже стало уютнее! Выбирай любой режим, зарабатывай монеты и возвращайся ко мне. Вместе мы снова откроем цветочную лавку."]
@@ -89,6 +85,8 @@ func home() -> void:
 	move_source=-1
 	Rules.sync(game.store.data)
 	hud=HUD.new(game,"home"); map_view=hud.map
+	map_view.nursery_selected.connect(business.nursery)
+	map_view.shop_selected.connect(business.shop)
 	map_view.cat_selected.connect(func(): message=words("Джек: Это Персик. Любит тёплые дорожки и смотреть, как растут цветы.","Jack: This is Peaches. He loves warm paths and watching the flowers grow."); slot=-1; repair_index=-1; show())
 	map_view.place_selected.connect(select_place)
 	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",16); hud.content.add_child(row)
@@ -105,13 +103,19 @@ func home() -> void:
 	if int(g().farm.orders_done)==0 and not new_scene:
 		for bed in g().farm.beds.values():
 			if int(bed.growth)>=3: first_bouquet_ready=true
-	game.button(words("Новая глава: Джек и Лилия  ›","New chapter: Jack and Lily  ›") if new_scene else words("Собрать первый букет  ›","Make your first bouquet  ›") if first_bouquet_ready else words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),business.story if new_scene else business.nursery if first_bouquet_ready else journal,hud.content,true)
+	game.button(words("Новая глава: Джек и Лилия  ›","New chapter: Jack and Lily  ›") if new_scene else words("Найти огород: первый букет  ›","Find the nursery: first bouquet  ›") if first_bouquet_ready else words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),business.story if new_scene else find_nursery if first_bouquet_ready else journal,hud.content,true)
 	var light: bool=g().story.last_mode=="light"
 	var id: int=game.unlocked() if light else game.match_unlocked()
 	hud.play_button((words("Дорожки света","Light paths") if light else words("Цветочный каскад","Flower Cascade"))+words("\nИграть · уровень ","\nPlay · level ")+str(id),func(): game.open_level(id) if light else game.open_match(id))
-	hud.nav([[words("Мой сад","My garden"),open_garden],[words("Огород","Nursery"),business.nursery],[words("Магазин","Flower shop"),business.shop],[words("Режимы","Modes"),modes]])
+	hud.nav([[words("Мой сад","My garden"),open_garden],[words("Режимы","Modes"),modes]])
 	if not game.error_message.is_empty(): HUD.text(hud.content,game.error_message,20,Color("a53636"))
 	if game.store.recovered: HUD.text(hud.content,words("Сохранение восстановлено из копии.","Save recovered from backup."),18)
+
+func find_nursery() -> void:
+	var point: Vector2=Map.NURSERY_POS*Map.WORLD
+	g().camera=[point.x,point.y,.55]
+	message=words("Коснись здания «Огород», чтобы войти.","Tap the Nursery building to enter.")
+	move_source=-1; slot=-1; repair_index=-1; pending=-1; show()
 
 func task_title() -> String:
 	var step: int=Story.next(g())
@@ -151,7 +155,7 @@ func modes() -> void:
 		var title: String=words("Цветочный каскад","Flower Cascade") if match_mode else words("Дорожки света","Light paths")
 		var done: int=game.store.data.match3.completed.size() if match_mode else game.store.data.completed.size()
 		var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",16); hud.content.add_child(row)
-		var icon:=TextureRect.new(); icon.texture=Art.icon(0 if match_mode else 1); icon.custom_minimum_size=Vector2(72,72); icon.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; icon.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; row.add_child(icon)
+		var icon=preload("res://scripts/model_preview.gd").new(); icon.variant=0 if match_mode else 1; icon.custom_minimum_size=Vector2(72,72); row.add_child(icon)
 		var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 		HUD.text(copy,title,29)
 		HUD.text(copy,words("Меняй цветы, собирай три в ряд.","Swap flowers and match three.") if match_mode else words("Поворачивай дорожки к цветам.","Turn paths towards flowers."),20,HUD.SOFT)
@@ -201,14 +205,14 @@ func show() -> void:
 			game.button(words("Убрать · +","Remove · +")+str(Rules.ITEMS[item][2]),remove_item)
 	else:
 		HUD.text(hud.content,task_title(),29)
-		HUD.text(hud.content,words("Потяни сад пальцем, чтобы осмотреть его.","Drag to explore your garden."),21,HUD.SOFT)
+		HUD.text(hud.content,words("Потяни карту. Коснись здания магазина или огорода, чтобы войти.","Drag the map. Tap the shop or nursery building to enter."),21,HUD.SOFT)
 		var row:=HBoxContainer.new(); hud.content.add_child(row)
 		game.button(words("К цели","Next task"),focus_task,row,true)
 		game.button(words("Оформить","Decorate"),open_shop,row)
 		game.button(words("День / вечер","Day / evening"),toggle_evening,row)
 	if move_source>=0: game.button(words("Отменить перенос","Cancel move"),func(): move_source=-1; message=""; show())
 	if not message.is_empty(): game.label(message,20)
-	hud.nav([[words("Огород","Nursery"),business.nursery],[words("Магазин","Flower shop"),business.shop],[words("Режимы","Modes"),modes],[words("Ещё","More"),more_menu]])
+	hud.nav([[words("Режимы","Modes"),modes],[words("Ещё","More"),more_menu]])
 	game.tutorial.maybe_open("garden")
 
 func more_menu() -> void:
@@ -270,8 +274,7 @@ func shop() -> void:
 		var item: Array=Rules.ITEMS[id]
 		var unlocked: bool=g().earned.size()>=item[4]
 		var card:=VBoxContainer.new(); card.size_flags_horizontal=Control.SIZE_EXPAND_FILL; grid.add_child(card)
-		var art:=TextureRect.new(); art.texture=Map.bed_texture(item[3]) if id<6 else Map.decor_texture(item[3])
-		art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		var art=preload("res://scripts/model_preview.gd").new(); art.kind="flower" if id<6 else "bench" if id==6 else "lamp" if id==7 else "house"; art.variant=int(item[3]) if id<6 else 0
 		art.custom_minimum_size=Vector2(0,140); card.add_child(art)
 		var choose: Button=game.button(title_of(item)+"\n"+(str(item[2])+words(" монет"," coins") if unlocked else words("Нужно уровней: ","Levels needed: ")+str(item[4])),preview.bind(id),card)
 		choose.add_theme_font_size_override("font_size",20); choose.custom_minimum_size.y=92; choose.disabled=not unlocked
@@ -311,11 +314,7 @@ func remove_item() -> void:
 func show_repair() -> void:
 	var item: Array=Rules.REPAIRS[repair_index]
 	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",18); game.root_box.add_child(row)
-	var art:=TextureRect.new(); art.texture=Map.decor_texture(int(item[5])); art.custom_minimum_size=Vector2(140,140); art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; row.add_child(art)
-	if repair_index==0:
-		var gate:=AtlasTexture.new(); gate.atlas=Map.BACKGROUND
-		var extent:=Vector2(Map.BACKGROUND.get_width(),Map.BACKGROUND.get_height())
-		gate.region=Rect2(extent*Vector2(.40,.70),extent*Vector2(.20,.20)); art.texture=gate
+	var art=preload("res://scripts/model_preview.gd").new(); art.kind=["bench","fountain","greenhouse","shop","bench"][repair_index]; art.custom_minimum_size=Vector2(140,140); row.add_child(art)
 	var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 	HUD.text(copy,title_of(item),28)
 	if repair_index in g().repairs:
