@@ -16,7 +16,7 @@ func sample(name_value: String) -> void:
 func run() -> void:
 	game=Main.new(); game.store=Saves.new("user://world-perf-"+str(OS.get_process_id())+".json"); root.add_child(game); game.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	await process_frame
-	game.store.data.garden.intro_done=true; game.store.data.tutorial_seen=["garden","light","match"]
+	game.store.data.garden.intro_done=true; game.store.data.tutorial_seen=["garden","light","match","nursery","shop"]; game.store.data.garden.repairs=[0,1,2,3]
 	game.show_home(); await sample("Garden")
 	game.garden_ui.business.nursery(); await sample("Nursery")
 	game.garden_ui.business.shop(); await sample("Shop")
