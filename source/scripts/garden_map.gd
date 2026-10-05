@@ -134,11 +134,11 @@ func select_at(point: Vector2) -> void:
 	if screen_point(Vector2(1520,790)).distance_to(point)<maxf(28,70*zoom):
 		cat_selected.emit(); return
 	if screen_point(NURSERY_POS*WORLD).distance_to(point)<maxf(56,165*zoom):
-		if 2 in garden.repairs or not garden.get("farm",{}).get("beds",{}).is_empty(): nursery_selected.emit()
+		if Rules.Farm.can_enter(garden,"nursery"): nursery_selected.emit()
 		else: place_selected.emit("repair",2)
 		return
 	if screen_point(BUSINESS_POS*WORLD).distance_to(point)<maxf(58,210*zoom):
-		if 3 in garden.repairs or int(garden.get("farm",{}).get("orders_done",0))>0 or int(garden.get("farm",{}).get("shop_tier",0))>0: shop_selected.emit()
+		if Rules.Farm.can_enter(garden,"shop"): shop_selected.emit()
 		else: place_selected.emit("repair",3)
 		return
 	for id in EXTRA_POS.size():

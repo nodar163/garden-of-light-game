@@ -37,6 +37,8 @@ func run() -> void:
 	game.store=Saves.new(path); root.add_child(game); game.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); await settle()
 	game.store.data.garden.intro_done=true; game.store.data.tutorial_seen=["garden","light","match"]
 	game.store.data.garden.coins=500
+	game.store.data.garden.repairs=[0,1,2,3]
+	game.store.data.tutorial_seen=["garden","light","match","nursery","shop"]
 	game.garden_ui.business.nursery(); await settle()
 	var view: Control=game.root_box.get_child(1)
 	check(view is World,"nursery uses the illustrated interactive room")

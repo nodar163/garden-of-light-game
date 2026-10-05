@@ -57,7 +57,7 @@ func _initialize() -> void:
 		check(Farm.build_shop(story_g), "shop tier %d builds" % tier)
 		check(Farm.claim_story(story_g, tier + 3), "shop tier %d opens scene" % tier)
 	for id in range(1,501): story_g.earned.append("light:"+str(id) if id<=250 else "match:"+str(id-250))
-	for id in range(6,12):
+	for id in Farm.CHAPTER_ORDER.slice(6):
 		check(Farm.claim_story(story_g,id),"later garden milestone opens chapter %d" % id)
 	for tier in range(3,5):
 		story_g.farm.orders_done=Farm.SHOP_ORDERS[tier]

@@ -29,6 +29,7 @@ func run() -> void:
 	game.store.data.completed=range(1,61)
 	Garden.sync(game.store.data)
 	game.store.data.garden.coins=1500
+	game.store.data.garden.repairs=[0,1,2,3]
 	check(Farm.plant(game.store.data.garden,0,0),"starter flower can be planted")
 	check(Farm.plant(game.store.data.garden,1,1),"second flower can be planted")
 	game.open_level(1)

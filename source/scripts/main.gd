@@ -61,6 +61,8 @@ func _exit_tree() -> void:
 	# The business controller and garden controller reference each other.
 	# Break that ownership cycle when the game closes, including in scene tests.
 	if garden_ui!=null:
+		if garden_ui.journal_view!=null: garden_ui.journal_view.ui=null; garden_ui.journal_view.game=null
+		garden_ui.journal_view=null
 		if garden_ui.business!=null: garden_ui.business.garden_ui=null
 		garden_ui.business=null; garden_ui.hud=null; garden_ui=null
 
@@ -133,6 +135,7 @@ func _layout() -> void:
 	shell.add_theme_constant_override("margin_bottom", bottom)
 
 func clear_page(name_value: String) -> void:
+	if tutorial!=null: tutorial.dismiss()
 	page = name_value
 	if sound != null: sound.set_home(name_value == "home")
 	board = null
@@ -257,6 +260,7 @@ func show_levels() -> void:
 		item.custom_minimum_size.y = 92
 		item.disabled = id > unlocked()
 	label(words("Следующая полянка откроется после цветения.", "The next clearing opens when every flower blooms."), 22, MUTED)
+	tutorial.maybe_open("levels")
 
 func select_group(direction: int) -> void:
 	level_group = clampi(level_group + direction, 0, 9)
@@ -317,6 +321,7 @@ func undo() -> void:
 
 func restart() -> void:
 	puzzle.restart()
+	light_session_won=false; light_rewarded=false
 	selected_hint = -1
 	refresh()
 	persist()
@@ -382,17 +387,27 @@ func show_settings() -> void:
 	for setting in [["music", words("Музыка", "Music")], ["sound", words("Звуки", "Sounds")], ["reduce_motion", words("Меньше анимаций", "Reduced motion")]]:
 		var key: String = setting[0]
 		button(setting[1] + "  ·  " + (words("Вкл", "On") if store.data.settings[key] else words("Выкл", "Off")), toggle.bind(key))
-	button("Язык / Language  ·  " + ("Русский" if store.data.settings.language == "ru" else "English"), func():
-		store.data.settings.language = "en" if store.data.settings.language == "ru" else "ru"
-		get_window().title=words("Сад Джека","Jack's Garden")
-		persist()
-		show_settings())
+	label("Язык / Language",22)
+	var languages:=HBoxContainer.new(); root_box.add_child(languages)
+	for entry in [["ru","Русский"],["en","English"]]:
+		var code: String=entry[0]
+		button(entry[1],set_language.bind(code),languages,store.data.settings.language==code)
+
 	spacer()
-	label(words("Игра не собирает данные и не подключается к сети. Прогресс хранится только на устройстве.", "No data collection or network connection. Progress stays on this device."), 22, MUTED)
+	label(words("Прогресс хранится в этом браузере. Интернет нужен для первой загрузки и обновлений; игровых аккаунтов и аналитики нет.", "Progress stays in this browser. Internet is needed for the first download and updates; there are no game accounts or analytics."), 22, MUTED)
 	label(words("При удалении приложения прогресс может быть потерян.", "Uninstalling the app may remove your progress."), 18, MUTED)
 	button(words("История Джека", "Jack's story"),func(): garden_ui.replay=true; garden_ui.intro(0))
 	button(words("Резервная копия", "Save backup"),show_backup)
 	button(words("Лицензии", "Licenses"), show_licenses)
+	tutorial.maybe_open("settings")
+
+func set_language(code: String) -> void:
+	if code not in ["ru","en"]: return
+	var previous: String=store.data.settings.language
+	store.data.settings.language=code
+	if not store.write(): store.data.settings.language=previous
+	get_window().title=words("Сад Джека","Jack's Garden")
+	show_settings()
 
 func toggle(key: String) -> void:
 	store.data.settings[key] = not store.data.settings[key]
@@ -463,6 +478,7 @@ func show_match_levels() -> void:
 		item.custom_minimum_size.y=88; item.disabled=id>match_unlocked()
 	label(words("Букетов собрано: ", "Bouquets completed: ")+"%d / 250" % store.data.match3.completed.size(),22,MUTED)
 	button(words("Как играть и усилители", "How to play and power-ups"),show_match_help)
+	tutorial.maybe_open("levels")
 
 func match_page(direction: int) -> void:
 	match_group=clampi(match_group+direction,0,9)
@@ -636,3 +652,4 @@ func show_backup() -> void:
 		dialog.visibility_changed.connect(func():
 			if not dialog.visible: dialog.queue_free())
 		dialog.popup_centered(Vector2i(540,220)))
+	tutorial.maybe_open("backup")

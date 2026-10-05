@@ -19,6 +19,7 @@ var tutorial_plant:=false
 var replay:=false
 var story_step:=0
 var business: RefCounted
+var journal_view: RefCounted
 
 func _init(host: Control) -> void:
 	game=host
@@ -52,7 +53,7 @@ func intro(start: int=-1) -> void:
 	if story_step==1:
 		make_map(430,false)
 	else:
-		var portrait=preload("res://scripts/illustrated_preview.gd").new(); portrait.kind="person"; portrait.variant=4
+		var portrait=preload("res://scripts/illustrated_preview.gd").new(); portrait.kind="person"; portrait.variant=0
 		portrait.custom_minimum_size.y=390; portrait.size_flags_vertical=Control.SIZE_EXPAND_FILL
 		game.root_box.add_child(portrait)
 	var ru=["Я Джек. Здесь я выращивал цветы и собирал букеты для наших соседей. Для каждого праздника находился свой цветок.","Ночью буря разрушила клумбы, повредила теплицу и закрыла путь к лавке. Но семена уцелели. Поможешь вернуть саду жизнь?","У меня осталось 50 садовых монет — хватит на первые космеи. Потом будем проходить уровни: каждое новое решение принесёт ещё 25 монет.","Посмотри, уже стало уютнее! Выбирай любой режим, зарабатывай монеты и возвращайся ко мне. Вместе мы снова откроем цветочную лавку."]
@@ -98,7 +99,7 @@ func home() -> void:
 	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 500; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
-	var new_scene: bool=Farm.story_ready(g(),g().farm.story_seen.size())
+	var new_scene: bool=Farm.story_ready(g(),Farm.next_story(g()))
 	var first_bouquet_ready: bool=false
 	if int(g().farm.orders_done)==0 and not new_scene:
 		for bed in g().farm.beds.values():
@@ -136,7 +137,11 @@ func task_detail() -> String:
 
 func journal() -> void:
 	if Story.next(g())>=Story.STEPS.size(): journey()
-	else: Journal.new(self).show()
+	else: journal_controller().show()
+
+func journal_controller() -> RefCounted:
+	if journal_view==null: journal_view=Journal.new(self)
+	return journal_view
 
 func open_shop() -> void:
 	slot=Rules.next_empty(g()); pending=-1; repair_index=-1; shop()
@@ -172,12 +177,13 @@ func guides() -> void:
 	game.clear_page("guides")
 	game.header(words("Обучение","Guides"))
 	game.label(words("Посмотри короткие подсказки ещё раз","Replay a quick guide"),29)
-	game.label(words("Каждое обучение состоит из трёх коротких шагов.","Each guide has three short steps."),21,game.MUTED)
+	game.label(words("Джек объяснит и покажет безопасный пример.","Jack explains with a safe practice example."),21,game.MUTED)
 	game.spacer()
 	game.button(words("Мой сад — карта и покупки","My garden — map and purchases"),func(): game.tutorial.open("garden"))
 	game.button(words("Дорожки света — как соединять","Light paths — how to connect"),func(): game.tutorial.open("light"))
 	game.button(words("Цветочный каскад — как собирать","Flower Cascade — how to match"),func(): game.tutorial.open("match"))
-	game.spacer()
+	game.button(words("Огород — посадка и урожай","Nursery — planting and harvest"),func(): game.tutorial.open("nursery"))
+	game.button(words("Магазин — букет и покупатель","Shop — bouquets and customers"),func(): game.tutorial.open("shop"))
 	game.button(words("К выбору игры","Back to games"),modes)
 
 func show() -> void:
@@ -243,7 +249,9 @@ func focus_task() -> void:
 	for i in Rules.REPAIRS.size():
 		if i not in g().repairs:
 			select_place("repair",i); map_view.focus_place("repair",i); return
-	select_place("plot",Rules.next_empty(g())); map_view.focus_place("plot",slot)
+	var next_slot: int=Rules.next_empty(g())
+	if g().plots.size()>=Rules.PLOT_COUNT: message=words("Сад заполнен. Можно переставлять украшения или собирать букеты.","The garden is full. Rearrange decorations or make bouquets."); show(); return
+	select_place("plot",next_slot); map_view.focus_place("plot",slot)
 
 func select_place(kind: String,index: int) -> void:
 	if move_source>=0:
@@ -340,6 +348,12 @@ func show_repair() -> void:
 			HUD.text(copy,words("Не хватает %d монет — ещё %d новых уровней.","%d more coins — %d new levels.") % [missing,ceili(missing/25.0)],20,HUD.SOFT)
 		else: HUD.text(copy,words("Всё готово. Вернём ему красоту!","All ready. Let's bring it back!"),21,HUD.SOFT)
 		game.button(words("Восстановить · ","Restore · ")+str(item[2])+words(" монет"," coins"),restore,null,true).disabled=not ready or missing>0
+		if repair_index>0 and repair_index-1 not in g().repairs:
+			game.button(words("Сначала: ","First: ")+title_of(Rules.REPAIRS[repair_index-1]),focus_task)
+		elif g().plots.size()<int(item[3]):
+			game.button(words("Выбрать недостающие посадки","Choose the missing plantings"),open_shop)
+		elif missing>0:
+			game.button(words("Заработать монеты в уровнях","Earn coins in levels"),modes)
 
 func restore() -> void:
 	if game.store.garden_transaction(func(data): return Rules.repair(data,repair_index)):
@@ -355,7 +369,7 @@ func help() -> void:
 	game.clear_page("garden_help"); game.header(words("Лавка Джека","Jack's flower stall"))
 	game.label(wallet(),30)
 	game.label(words("Букеты для соседей","Bouquets for neighbours"),35)
-	game.button(words("Заказы друзей","Orders from friends"),func(): Journal.new(self).orders(),null,true)
+	game.button(words("Заказы друзей","Orders from friends"),func(): journal_controller().orders(),null,true)
 	game.label(words("Каждые 10 новых уровней и 3 клумбы позволяют продать один букет за 40 монет. Цветы остаются расти в саду. Ожидания нет.","Every 10 new levels and 3 flowerbeds let Jack sell one bouquet for 40 coins. The flowers stay in your garden. No waiting."),24)
 	game.label(words("Клумбы: %d/3 · уровни: %d/%d","Flowerbeds: %d/3 · levels: %d/%d") % [Rules.flowers(g()),g().earned.size(),(int(g().orders)+1)*10],24)
 	game.button(words("Продать букет · +40 монет","Sell bouquet · +40 coins"),sell_order,null,true).disabled=not Rules.order_ready(g())
@@ -375,7 +389,7 @@ func toggle_evening() -> void:
 	show()
 
 func journey() -> void:
-	Journal.new(self).journey()
+	journal_controller().journey()
 
 func photo() -> void:
 	game.clear_page("garden_photo")

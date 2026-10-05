@@ -59,13 +59,15 @@ func refresh() -> void:
 			if bed is Dictionary: caption=words("Собрать","Harvest") if int(bed.growth)==3 else words("Рост %d/3","Growth %d/3") % int(bed.growth)
 			elif i in g().farm.prepared: caption=words("Посадить","Plant")
 			badge(caption,projected(BED_POS[i])+Vector2(0,size.x*.032),size.x*.32)
-			badge(str(int(Farm.SPECIES[i][7])),projected(seed_pos(i))+Vector2(0,size.x*.023),size.x*.13)
+			var unlocked: bool=g().earned.size()>=int(Farm.SPECIES[i][6])
+			badge(str(int(Farm.SPECIES[i][7])) if unlocked else words("%d побед","%d wins") % int(Farm.SPECIES[i][6]),projected(seed_pos(i))+Vector2(0,size.x*.023),size.x*.14)
 		for i in 3: badge(words(["Лопатка","Лейка","Корзина"][i],["Spade","Water","Basket"][i]),projected(TOOL_POS[i])+Vector2(0,size.x*.075),size.x*.23)
 	else:
 		var counts: Array=Farm.draft_counts(g())
 		for i in 6: badge(str(int(g().farm.stock[i])-int(counts[i])),projected(STOCK_POS[i])+Vector2(0,size.x*.035),size.x*.13)
 		badge(words("Касса","Checkout"),projected(CASH)+Vector2(0,size.x*.035),size.x*.28)
-		badge(words("Букетный стол","Bouquet table"),projected(DESK)+Vector2(0,size.x*.08),size.x*.42)
+		var offer: Dictionary=Farm.bouquet(g(),counts)
+		badge(words("Букет · %d монет","Bouquet · %d coins") % int(offer.coins) if offer.get("valid",false) else words("Букетный стол","Bouquet table"),projected(DESK)+Vector2(0,size.x*.08),size.x*.48)
 		var customer: Array=Farm.order(g())
 		badge(str(customer[1 if game.store.data.settings.language=="en" else 0]).split(" · ")[0],point(Vector2(.61,.065)),size.x*.42)
 		badge(words(["Любит аромат","Любит стойкость","Любит пышность"][int(customer[2])],["Loves fragrance","Loves freshness","Loves fullness"][int(customer[2])]),point(Vector2(.61,.097)),size.x*.48)
@@ -152,7 +154,11 @@ func _gui_input(event: InputEvent) -> void:
 			elif kind=="bed":
 				selected_bed=id; bed_selected.emit(id); message=bed_description(id)
 				if g().farm.beds.has(str(id)) and int(g().farm.beds[str(id)].growth)==3: selected_item=kind; selected_id=id; message=words("Коснись корзины для сбора.","Tap the basket to harvest.")
-			else: selected_item=kind; selected_id=id; message=words("Теперь коснись подсвеченного места.","Now tap the highlighted destination.")
+			else:
+				selected_item=kind; selected_id=id; message=words("Теперь коснись подсвеченного места.","Now tap the highlighted destination.")
+				if kind in ["seed","flower"]:
+					var spec: Array=Farm.SPECIES[id]
+					message=words(spec[0],spec[1])+words(" · Аромат %d · Стойкость %d · Пышность %d. Теперь выбери место."," · Fragrance %d · Freshness %d · Fullness %d. Now choose a destination.") % [spec[3],spec[4],spec[5]]
 			update_guidance(); queue_redraw()
 		accept_event()
 	elif event is InputEventMouseMotion and not drag_kind.is_empty(): pointer=event.position; moved=moved or pointer.distance_to(press_position)>8; queue_redraw(); accept_event()
@@ -169,6 +175,20 @@ func advance_queue() -> void:
 	var tween:=create_tween()
 	tween.tween_method(func(value: float): queue_offset=value; queue_redraw(),1.0,0.0,.01 if game.store.data.settings.reduce_motion else .45)
 	tween.tween_callback(func(): busy=false)
+
+func update_guidance() -> void:
+	if message.is_empty():
+		if mode=="shop" and g().farm.draft.flowers.is_empty():
+			var total:=0
+			for amount_value in g().farm.stock: total+=int(amount_value)
+			if total==0:
+				guidance_changed.emit(words("Витрина пуста. Вернись в сад, зайди в огород и собери урожай в корзину.","The display is empty. Return to the garden, enter the nursery and harvest into the basket.")); return
+		if mode=="nursery" and not g().farm.beds.is_empty():
+			var waiting:=true
+			for bed in g().farm.beds.values(): waiting=waiting and bool(bed.watered) and int(bed.growth)<3
+			if waiting:
+				guidance_changed.emit(words("Цветы политы. Нажми «К уровням»: новая победа приблизит урожай. Можно заново решить пройденный уровень.","Flowers are watered. Play levels to grow them toward harvest. You can solve an earlier level again.")); return
+	super.update_guidance()
 
 func draw_customer(order_id: int, uv: Vector2, opacity: float=1) -> void:
 	var id: int=CUSTOMER_LOOKS[posmod(order_id,CUSTOMER_LOOKS.size())]

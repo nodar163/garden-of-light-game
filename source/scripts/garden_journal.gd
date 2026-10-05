@@ -33,6 +33,7 @@ func show() -> void:
 		game.label(ui.title_of(Story.STEPS[int(id)])+" · "+words("завершено","complete"),22)
 		game.button(words("Вспомнить","Remember"),scene.bind(int(id)))
 	game.button(words("Вернуться в сад","Back to garden"),ui.open_garden)
+	game.tutorial.maybe_open("journal")
 func scene(id: int) -> void:
 	begin(words("ИСТОРИЯ ДЖЕКА","JACK'S STORY"))
 	ui.make_map(380,false)

@@ -20,11 +20,11 @@ const ITEMS=[
 	["Садовый зайчик","Garden rabbit",220,10,28],
 	["Солнечные часы","Sundial",240,11,35]]
 const REPAIRS=[
-	["Восстановить дом и вход","Restore cottage and entrance",150,1,12,7],
-	["Восстановить фонтан","Restore the fountain",300,3,13,4],
-	["Починить теплицу","Repair the greenhouse",600,6,14,5],
-	["Открыть цветочную лавку","Open the flower stall",900,10,15,6],
-	["Устроить цветочную беседку","Build the flower pergola",1200,15,12,7]]
+	["Восстановить дом и вход","Restore cottage and entrance",50,1,12,7],
+	["Восстановить фонтан","Restore the fountain",75,2,13,4],
+	["Починить теплицу","Repair the greenhouse",100,3,14,5],
+	["Открыть цветочную лавку","Open the flower stall",150,4,15,6],
+	["Устроить цветочную беседку","Build the flower pergola",350,8,12,7]]
 const REPAIR_POS=[Vector2(.46,.86),Vector2(.515,.48),Vector2(.80,.285),Vector2(.23,.66),Vector2(.89,.60)]
 
 static func defaults() -> Dictionary:

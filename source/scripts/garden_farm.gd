@@ -25,6 +25,16 @@ const CUSTOMERS = [
 	["Открытый сад", "The open garden", 0, "Букет для гостя, который заглянет впервые.", "A bouquet for someone visiting for the first time."],
 ]
 const SHOP_PRICES = [600, 1000, 1500, 2200, 3000]
+const CHAPTER_ORDER=[0,1,2,3,4,5,6,12,7,13,8,14,9,15,10,16,17,11]
+
+static func can_enter(g: Dictionary, kind: String) -> bool:
+	return (2 if kind=="nursery" else 3) in g.get("repairs",[])
+
+static func next_story(g: Dictionary) -> int:
+	ensure(g)
+	for id in CHAPTER_ORDER:
+		if id not in g.farm.story_seen: return id
+	return -1
 const SHOP_ORDERS = [4, 12, 25, 40, 60]
 const BUILDINGS = [
 	["Домик пчёл", "Bee house", 350, 2],
@@ -91,8 +101,10 @@ static func valid(value: Variant) -> bool:
 		if not bed is Dictionary or int(bed.get("species", -1)) < 0 or int(bed.get("species", -1)) >= SPECIES.size(): return false
 		if int(bed.get("tier", -1)) < 1 or int(bed.get("tier", -1)) > 3 or int(bed.get("growth", -1)) < 0 or int(bed.get("growth", -1)) > 3: return false
 		if bed.has("watered") and not bed.watered is bool: return false
+	var seen_scenes: Dictionary={}
 	for scene in value.story_seen:
-		if not typeof(scene) in [TYPE_INT, TYPE_FLOAT] or int(scene) < 0 or int(scene) > 11: return false
+		if not typeof(scene) in [TYPE_INT, TYPE_FLOAT] or float(scene)!=int(scene) or int(scene) not in CHAPTER_ORDER or seen_scenes.has(int(scene)): return false
+		seen_scenes[int(scene)]=true
 	var built: Dictionary = {}
 	for item in value.buildings:
 		if not typeof(item) in [TYPE_INT, TYPE_FLOAT] or float(item) != int(item) or int(item) < 0 or int(item) >= BUILDINGS.size() or built.has(int(item)): return false
@@ -237,7 +249,7 @@ static func bouquet(g: Dictionary, picked: Array) -> Dictionary:
 			quality_points += amount * int(SPECIES[id][3 + int(order(g)[2])])
 	if count < 1 or count > 3: return {"valid": false}
 	var quality: int = roundi(float(quality_points) / count)
-	var coins: int = 25 + 8 * count + 6 * quality + 5 * maxi(0, diversity - 1) + (5 if 1 in g.farm.buildings else 0) + (8 if int(g.farm.shop_tier)>=4 else 0) + (8 if int(g.farm.shop_tier)>=5 else 0)
+	var coins: int = 25 + 8 * count + 6 * quality + 5 * maxi(0, diversity - 1) + (5 if 1 in g.farm.buildings else 0) + 4*mini(3,int(g.farm.shop_tier)) + (8 if int(g.farm.shop_tier)>=4 else 0) + (8 if int(g.farm.shop_tier)>=5 else 0)
 	return {"valid": true, "quality": quality, "coins": coins, "reputation": 2 if quality >= 2 else 1}
 
 static func sell(g: Dictionary, picked: Array, flowers: Array=[], wrap: int=0) -> bool:
@@ -277,7 +289,7 @@ static func build_shop(g: Dictionary) -> bool:
 
 static func story_ready(g: Dictionary, id: int) -> bool:
 	ensure(g)
-	if id < 0 or id > 11 or id in g.farm.story_seen or id != g.farm.story_seen.size(): return false
+	if id not in CHAPTER_ORDER or id in g.farm.story_seen or id != next_story(g): return false
 	match id:
 		0: return g.get("earned",[]).size() >= 3 or 0 in g.repairs
 		1: return 2 in g.repairs
@@ -291,6 +303,7 @@ static func story_ready(g: Dictionary, id: int) -> bool:
 		9: return g.earned.size() >= 200
 		10: return g.earned.size() >= 300
 		11: return g.earned.size() >= 500
+		_: return g.earned.size()>=[75,125,175,250,375,450][id-12]
 	return false
 
 static func claim_story(g: Dictionary, id: int) -> bool:
