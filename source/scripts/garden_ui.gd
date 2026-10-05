@@ -52,7 +52,7 @@ func intro(start: int=-1) -> void:
 	if story_step==1:
 		make_map(430,false)
 	else:
-		var portrait=preload("res://scripts/model_preview.gd").new(); portrait.kind="person"; portrait.variant=4
+		var portrait=preload("res://scripts/illustrated_preview.gd").new(); portrait.kind="person"; portrait.variant=4
 		portrait.custom_minimum_size.y=390; portrait.size_flags_vertical=Control.SIZE_EXPAND_FILL
 		game.root_box.add_child(portrait)
 	var ru=["Я Джек. Здесь я выращивал цветы и собирал букеты для наших соседей. Для каждого праздника находился свой цветок.","Ночью буря разрушила клумбы, повредила теплицу и закрыла путь к лавке. Но семена уцелели. Поможешь вернуть саду жизнь?","У меня осталось 50 садовых монет — хватит на первые космеи. Потом будем проходить уровни: каждое новое решение принесёт ещё 25 монет.","Посмотри, уже стало уютнее! Выбирай любой режим, зарабатывай монеты и возвращайся ко мне. Вместе мы снова откроем цветочную лавку."]
@@ -155,7 +155,7 @@ func modes() -> void:
 		var title: String=words("Цветочный каскад","Flower Cascade") if match_mode else words("Дорожки света","Light paths")
 		var done: int=game.store.data.match3.completed.size() if match_mode else game.store.data.completed.size()
 		var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",16); hud.content.add_child(row)
-		var icon=preload("res://scripts/model_preview.gd").new(); icon.variant=0 if match_mode else 1; icon.custom_minimum_size=Vector2(72,72); row.add_child(icon)
+		var icon=preload("res://scripts/illustrated_preview.gd").new(); icon.variant=0 if match_mode else 1; icon.custom_minimum_size=Vector2(72,72); row.add_child(icon)
 		var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 		HUD.text(copy,title,29)
 		HUD.text(copy,words("Меняй цветы, собирай три в ряд.","Swap flowers and match three.") if match_mode else words("Поворачивай дорожки к цветам.","Turn paths towards flowers."),20,HUD.SOFT)
@@ -274,7 +274,7 @@ func shop() -> void:
 		var item: Array=Rules.ITEMS[id]
 		var unlocked: bool=g().earned.size()>=item[4]
 		var card:=VBoxContainer.new(); card.size_flags_horizontal=Control.SIZE_EXPAND_FILL; grid.add_child(card)
-		var art=preload("res://scripts/model_preview.gd").new(); art.kind="flower" if id<6 else "bench" if id==6 else "lamp" if id==7 else "house"; art.variant=int(item[3]) if id<6 else 0
+		var art=preload("res://scripts/illustrated_preview.gd").new(); art.kind="flower" if id<6 else "bench" if id==6 else "lamp" if id==7 else "house"; art.variant=int(item[3]) if id<6 else 0
 		art.custom_minimum_size=Vector2(0,140); card.add_child(art)
 		var choose: Button=game.button(title_of(item)+"\n"+(str(item[2])+words(" монет"," coins") if unlocked else words("Нужно уровней: ","Levels needed: ")+str(item[4])),preview.bind(id),card)
 		choose.add_theme_font_size_override("font_size",20); choose.custom_minimum_size.y=92; choose.disabled=not unlocked
@@ -282,7 +282,7 @@ func shop() -> void:
 
 func preview(id: int) -> void:
 	pending=id; repair_index=-1; message=""
-	var pos:=Rules.plot_position(slot)*Vector2(3200,2400)
+	var pos:=Rules.plot_position(slot)*Map.WORLD
 	g().camera=[pos.x,pos.y,.5]
 	show()
 
@@ -314,7 +314,12 @@ func remove_item() -> void:
 func show_repair() -> void:
 	var item: Array=Rules.REPAIRS[repair_index]
 	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",18); game.root_box.add_child(row)
-	var art=preload("res://scripts/model_preview.gd").new(); art.kind=["bench","fountain","greenhouse","shop","bench"][repair_index]; art.custom_minimum_size=Vector2(140,140); row.add_child(art)
+	var art:=TextureRect.new()
+	var atlas:=AtlasTexture.new(); atlas.atlas=Map.RESTORED
+	var zone: Vector4=Map.Restoration.ZONES[[0,2,3,4,5][repair_index]]
+	atlas.region=Rect2(Vector2(zone.x,zone.y)*Map.RESTORED.get_size(),Vector2(zone.z,zone.w)*Map.RESTORED.get_size())
+	art.texture=atlas; art.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; art.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	art.custom_minimum_size=Vector2(140,140); art.mouse_filter=Control.MOUSE_FILTER_IGNORE; row.add_child(art)
 	var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 	HUD.text(copy,title_of(item),28)
 	if repair_index in g().repairs:

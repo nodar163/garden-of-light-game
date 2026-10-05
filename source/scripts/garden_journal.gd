@@ -65,7 +65,7 @@ func album() -> void:
 	game.label(words("Истории в лепестках","Stories in petals"),34)
 	for id in 6:
 		var row:=HBoxContainer.new(); game.root_box.add_child(row)
-		var art=preload("res://scripts/model_preview.gd").new(); art.variant=id; art.custom_minimum_size=Vector2(130,130); row.add_child(art)
+		var art=preload("res://scripts/illustrated_preview.gd").new(); art.variant=id; art.custom_minimum_size=Vector2(130,130); row.add_child(art)
 		var text:=Label.new(); text.text=ui.title_of(Rules.ITEMS[id])+"\n"+(words("Растёт в нашем саду","Growing in our garden") if id in ui.g().plots.values() else words("Посади этот сорт","Plant this variety")); text.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; text.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(text)
 	game.button(words("Выбрать цветы","Choose flowers"),ui.open_shop)
 	game.button(words("Дневник","Journal"),show)
@@ -78,7 +78,7 @@ func journey() -> void:
 		var entry: Array=Story.MILESTONES[id]
 		var collected: bool=id in ui.g().story.milestones
 		var row:=HBoxContainer.new(); game.root_box.add_child(row)
-		var art=preload("res://scripts/model_preview.gd").new(); art.kind="fountain" if id%3==0 else "bench" if id%3==1 else "lamp"; art.custom_minimum_size=Vector2(84,84); row.add_child(art)
+		var art=preload("res://scripts/illustrated_preview.gd").new(); art.kind="fountain" if id%3==0 else "bench" if id%3==1 else "lamp"; art.custom_minimum_size=Vector2(84,84); row.add_child(art)
 		var label:=VBoxContainer.new(); label.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(label)
 		var name:=Label.new(); name.text=entry[2 if ui.english() else 1]; name.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; label.add_child(name)
 		var progress:=Label.new(); progress.text=words("Уровни: %d/%d","Levels: %d/%d") % [mini(ui.g().earned.size(),int(entry[0])),int(entry[0])]; label.add_child(progress)

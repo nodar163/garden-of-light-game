@@ -106,19 +106,12 @@ func _ready() -> void:
 			get_tree().quit()
 
 func _draw() -> void:
-	var tint := Color("102f39")
-	for band in 32:
-		var t := float(band)/31
-		draw_rect(Rect2(0, size.y*band/32, size.x, size.y/32+1), tint.lerp(Color("246954"), t))
-	for i in 36:
-		var p := Vector2(fposmod(i*137.3, size.x), fposmod(i*211.7, size.y))
-		draw_circle(p, 1.2 + i%3, Color(0.84,1.0,0.78,0.16))
-	for side in [-1, 1]:
-		for leaf in 9:
-			var p := Vector2(18 if side == -1 else size.x-18, size.y*(0.06+leaf*0.115))
-			draw_set_transform(p, side*0.65, Vector2(0.5,1))
-			draw_circle(Vector2.ZERO, 38, Color(0.26,0.71,0.51,0.12))
-			draw_set_transform(Vector2.ZERO)
+	# One static illustration ties menus, settings, journals and both puzzles together.
+	var scenery: Texture2D=preload("res://assets/garden-restored.png")
+	var scale_value:=maxf(size.x/scenery.get_width(),size.y/scenery.get_height())
+	var dimensions:=scenery.get_size()*scale_value
+	draw_texture_rect(scenery,Rect2((size-dimensions)/2,dimensions),false)
+	draw_rect(Rect2(Vector2.ZERO,size),Color(.055,.16,.12,.89))
 
 func _layout() -> void:
 	queue_redraw()
@@ -521,7 +514,7 @@ func open_match(id: int) -> void:
 	root_box.add_child(tools_row)
 	for k in 4:
 		var item:=button("1",select_match_tool.bind(k),tools_row)
-		var icon=preload("res://scripts/model_preview.gd").new(); icon.kind=["hammer","row","column","rainbow"][k]
+		var icon=preload("res://scripts/illustrated_preview.gd").new(); icon.kind=["hammer","row","column","rainbow"][k]
 		item.add_child(icon); icon.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); icon.offset_right=-26
 		item.alignment=HORIZONTAL_ALIGNMENT_RIGHT
 		item.custom_minimum_size=Vector2(0,60)

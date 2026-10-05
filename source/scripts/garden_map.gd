@@ -6,9 +6,15 @@ signal nursery_selected
 signal shop_selected
 signal tapped
 const Rules=preload("res://scripts/garden_rules.gd")
-const WORLD=Vector2(3200,2400)
-const NURSERY_POS=Vector2(.60,.27)
-const BUSINESS_POS=Vector2(.375,.53)
+const Flowers=preload("res://scripts/match_art.gd")
+const BACKGROUND=preload("res://assets/garden-abandoned.png")
+const RESTORED=preload("res://assets/garden-restored.png")
+const Restoration=preload("res://scripts/garden_restoration.gd")
+const BEDS=preload("res://assets/garden-beds.png")
+const DECOR=preload("res://assets/garden-decor.png")
+const WORLD=Vector2(3200,2133.3333)
+const NURSERY_POS=Vector2(.80,.285)
+const BUSINESS_POS=Vector2(.23,.66)
 const EXTRA_POS=[Vector2(.83,.42),Vector2(.35,.69)]
 var garden: Dictionary
 var english:=false
@@ -29,20 +35,20 @@ var sorted_plots: Array=[]
 var reduced:=false
 var effects: Control
 var camera_tween: Tween
-var stage: Control
-var models: Node3D
-var model_nodes: Dictionary={}
-var last_zoom: float=-1
-var last_camera:=Vector2(-1,-1)
-var last_size:=Vector2.ZERO
+var landscape: TextureRect
+var restoration_material: ShaderMaterial
 
 func _ready() -> void:
 	clip_contents=true
+	landscape=TextureRect.new(); landscape.texture=BACKGROUND
+	landscape.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; landscape.mouse_filter=Control.MOUSE_FILTER_IGNORE; landscape.show_behind_parent=true
+	restoration_material=ShaderMaterial.new(); restoration_material.shader=preload("res://scripts/garden_restoration.gdshader")
+	restoration_material.set_shader_parameter("restored_map",RESTORED)
+	Restoration.apply(restoration_material,garden)
+	landscape.material=restoration_material; add_child(landscape)
 	sorted_plots=range(Rules.PLOT_COUNT)
 	sorted_plots.sort_custom(func(a,b): return Rules.plot_position(a).y<Rules.plot_position(b).y)
-	stage=preload("res://scripts/scene_3d.gd").new(); add_child(stage); stage.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	models=Node3D.new(); stage.world.add_child(models)
-	build_world()
+	effects=preload("res://scripts/garden_life.gd").new(); effects.map=self; effects.reduced=reduced; add_child(effects)
 	focus_mode=Control.FOCUS_ALL if interactive else Control.FOCUS_NONE
 	mouse_filter=Control.MOUSE_FILTER_STOP if interactive else Control.MOUSE_FILTER_IGNORE
 	if interactive:
@@ -53,23 +59,28 @@ func _ready() -> void:
 
 func adjust() -> void:
 	if not interactive or fit_pending: overview(false)
-	elif presentation: zoom=maxf(size.x/WORLD.x,size.y/WORLD.y)*1.14
-	else: zoom=maxf(zoom,maxf(size.x/WORLD.x,size.y/WORLD.y))
+	elif presentation:
+		zoom=maxf(size.x/WORLD.x,maxf(1,size.y-occluded_bottom)/WORLD.y)*1.05
+		camera=WORLD*Vector2(.38,.49)+Vector2(0,occluded_bottom/(2*zoom))
+	else: zoom=maxf(zoom,maxf(size.x/WORLD.x,maxf(1,size.y-occluded_bottom)/WORLD.y))
 	if focus_index>=0: center_focus()
 	clamp_camera(); queue_redraw()
 
 func clamp_camera() -> void:
-	var half:=size/(2*zoom)
+	var visible_size:=Vector2(size.x,maxf(1,size.y-occluded_bottom))
+	var half:=visible_size/(2*zoom)
+	var shift:=occluded_bottom/(2*zoom)
 	camera.x=WORLD.x/2 if half.x>=WORLD.x/2 else clampf(camera.x,half.x,WORLD.x-half.x)
-	var max_y:=WORLD.y-half.y+occluded_bottom/zoom
-	camera.y=WORLD.y/2 if max_y<half.y else clampf(camera.y,half.y,max_y)
+	var visual_y:=camera.y-shift
+	visual_y=WORLD.y/2 if half.y>=WORLD.y/2 else clampf(visual_y,half.y,WORLD.y-half.y)
+	camera.y=visual_y+shift
 
 func overview(notify: bool=true) -> void:
 	if size.x<1 or size.y<1:
 		fit_pending=true; return
 	fit_pending=false
 	focus_index=-1
-	zoom=maxf(size.x/WORLD.x,size.y/WORLD.y)*1.02 if interactive else maxf(.1,minf(size.x/WORLD.x,size.y/WORLD.y))
+	zoom=maxf(size.x/WORLD.x,maxf(1,size.y-occluded_bottom)/WORLD.y)*1.02 if interactive else maxf(.1,minf(size.x/WORLD.x,size.y/WORLD.y))
 	camera=WORLD/2
 	queue_redraw()
 	if notify: changed()
@@ -80,7 +91,7 @@ func changed() -> void:
 
 func zoom_by(factor: float) -> void:
 	focus_index=-1
-	var target: float=clampf(zoom*factor,maxf(.18,maxf(size.x/WORLD.x,size.y/WORLD.y)),1.05)
+	var target: float=clampf(zoom*factor,maxf(.18,maxf(size.x/WORLD.x,maxf(1,size.y-occluded_bottom)/WORLD.y)),1.05)
 	if camera_tween: camera_tween.kill()
 	if reduced: zoom=target; changed(); return
 	camera_tween=create_tween()
@@ -96,7 +107,6 @@ func center_focus() -> void:
 	camera.y+=(occluded_bottom-100)/2/zoom
 
 func screen_point(world: Vector2) -> Vector2:
-	if is_instance_valid(stage) and stage.camera!=null: return stage.project(Vector3(world.x/100,0,world.y/100))
 	return (world-camera)*zoom+size/2
 
 func _gui_input(event: InputEvent) -> void:
@@ -113,12 +123,7 @@ func _gui_input(event: InputEvent) -> void:
 				if distance<12: select_at(event.position)
 			accept_event()
 	elif event is InputEventMouseMotion and dragging:
-		distance+=event.relative.length()
-		if stage.size.x<1 or stage.size.y<1: camera-=event.relative/maxf(.1,zoom)
-		else:
-			var current: Vector3=stage.ground_at(event.position)
-			var previous: Vector3=stage.ground_at(event.position-event.relative)
-			camera-=Vector2(current.x-previous.x,current.z-previous.z)*100
+		distance+=event.relative.length(); camera-=event.relative/zoom
 		clamp_camera(); queue_redraw(); accept_event()
 	elif event is InputEventKey and event.pressed:
 		if event.keycode in [KEY_LEFT,KEY_RIGHT,KEY_UP,KEY_DOWN]:
@@ -129,9 +134,13 @@ func select_at(point: Vector2) -> void:
 	if screen_point(Vector2(1520,790)).distance_to(point)<maxf(28,70*zoom):
 		cat_selected.emit(); return
 	if screen_point(NURSERY_POS*WORLD).distance_to(point)<maxf(56,165*zoom):
-		nursery_selected.emit(); return
+		if 2 in garden.repairs or not garden.get("farm",{}).get("beds",{}).is_empty(): nursery_selected.emit()
+		else: place_selected.emit("repair",2)
+		return
 	if screen_point(BUSINESS_POS*WORLD).distance_to(point)<maxf(58,210*zoom):
-		shop_selected.emit(); return
+		if 3 in garden.repairs or int(garden.get("farm",{}).get("orders_done",0))>0 or int(garden.get("farm",{}).get("shop_tier",0))>0: shop_selected.emit()
+		else: place_selected.emit("repair",3)
+		return
 	for id in EXTRA_POS.size():
 		if id in garden.get("farm",{}).get("buildings",[]) and screen_point(EXTRA_POS[id]*WORLD).distance_to(point)<maxf(50,125*zoom):
 			if id==0: nursery_selected.emit()
@@ -148,6 +157,23 @@ func select_at(point: Vector2) -> void:
 		if screen_point(Rules.REPAIR_POS[index]*WORLD).distance_to(point)<maxf(40,180*zoom):
 			place_selected.emit("repair",index); return
 
+static func decor_texture(index: int) -> AtlasTexture:
+	var result:=AtlasTexture.new(); result.atlas=DECOR
+	var unit:=DECOR.get_width()/4.0
+	result.region=Rect2(Vector2(index%4,index/4)*unit,Vector2.ONE*unit)
+	result.filter_clip=true
+	return result
+
+func decor(center: Vector2,radius: float,index: int,alpha: float=1) -> void:
+	var unit:=DECOR.get_width()/4.0
+	draw_texture_rect_region(DECOR,Rect2(center-Vector2.ONE*radius,Vector2.ONE*radius*2),Rect2(Vector2(index%4,index/4)*unit,Vector2.ONE*unit),Color(1,1,1,alpha),false,true)
+
+static func bed_texture(index: int) -> AtlasTexture:
+	var result:=AtlasTexture.new(); result.atlas=BEDS
+	var unit:=Vector2(BEDS.get_width()/3.0,BEDS.get_height()/2.0)
+	result.region=Rect2(Vector2(index%3,index/3)*unit,unit); result.filter_clip=true
+	return result
+
 func visible_area() -> int:
 	if selected>=0: return selected/6
 	var center:=camera-Vector2(0,(occluded_bottom-100)/2/zoom)
@@ -158,90 +184,67 @@ func visible_area() -> int:
 		if distance_value<distance_to_center: nearest=slot; distance_to_center=distance_value
 	return nearest/6
 
-func _process(_delta: float) -> void:
-	if not is_instance_valid(stage) or stage.camera==null: return
-	if last_zoom!=zoom or last_camera!=camera or last_size!=size:
-		stage.pose(Vector3(camera.x/100,0,camera.y/100),maxf(4,size.y/maxf(.1,zoom)/100))
-		stage.camera.position=Vector3(camera.x/100,18,camera.y/100+22); stage.camera.look_at(Vector3(camera.x/100,0,camera.y/100))
-		last_zoom=zoom; last_camera=camera; last_size=size
-
-func build_world() -> void:
-	var Models=preload("res://scripts/models_3d.gd")
-	stage.block(Vector3(16,-.45,12),Vector3(36,.8,28),Color("8eb977"))
-	stage.block(Vector3(16,-.02,12),Vector3(1.6,.06,22),Color("e1c99a"))
-	stage.block(Vector3(16,-.01,10),Vector3(26,.05,1.4),Color("e8d5b1"))
-	var scenery=Models.new()
-	for i in 20:
-		var point:=Vector3(3.5+fposmod(i*7.31,25.0),-.09,3+fposmod(i*4.17,18.0))
-		scenery.ball(point,Vector3(3.5,.13,2.7),Color("99be7b") if i%2==0 else Color("a6c783"))
-	for i in 30:
-		var point:=Vector3(15.25 if i%2==0 else 16.75,.045,1+i*.72)
-		scenery.ball(point,Vector3(.23,.09,.18),Color("d3c5a5"))
-	for i in 14:
-		var point:=Vector3(7+fposmod(i*3.81,18),.11,4+fposmod(i*5.34,15))
-		if point.distance_to(Vector3(16,0,10))<2.5: continue
-		for j in 3: scenery.ball(point+Vector3((j-1)*.22,.25,0),Vector3(.6,.55,.7),Color("82ad68"))
-	scenery.cylinder(Vector3(24,.02,17),1.6,.05,Color("72bdc9"))
-	for i in 16:
-		var a:=i*TAU/16
-		scenery.ball(Vector3(24+sin(a)*1.64,.04,17+cos(a)*1.64),Vector3(.33,.18,.32),Color("d3d3b3"))
-	for side in [-1,1]:
-		for i in 17:
-			scenery.box(Vector3(16+side*.88,.04,1.5+i*1.25),Vector3(.14,.13,1.18),Color("c8b58c"))
-	for i in 25:
-		var point:=Vector3(4+fposmod(i*5.83,25),0,2+fposmod(i*3.77,20))
-		if absf(point.x-16)<1.5 or absf(point.z-10)<1.3: continue
-		for side in [-1,1]: scenery.ball(point+Vector3(side*.12,.08,0),Vector3(.06,.3,.2),Color("59a750"),Vector3(0,.5,side*.35))
-	var detail:=MeshInstance3D.new(); detail.mesh=scenery.finish(); stage.world.add_child(detail)
-	for i in 16:
-		var point:=Vector3(6+fposmod(i*7.27,21.0),0,3+fposmod(i*5.77,18.0))
-		if absf(point.x-16)<1.5: continue
-		stage.add("flower" if 0 in garden.repairs else "bud",point,.50,i%6)
-	for i in 24:
-		var x: float=.7 if i%2==0 else 31.3
-		var tree: MeshInstance3D=stage.add("tree",Vector3(x,0,1+int(i/2)*2),1.0+(i%3)*.12,i)
-	for i in 15:
-		stage.add("tree",Vector3(1+i*2.1,0,.2),.8,i)
-		stage.add("tree",Vector3(1+i*2.1,0,23.8),.9,i)
-	stage.add("house",Vector3(10,0,5),1.5)
-	var nursery: Vector2=NURSERY_POS*WORLD/100
-	stage.add("greenhouse",Vector3(nursery.x,0,nursery.y),1.35)
-	stage.title("NURSERY" if english else "ОГОРОД",Vector3(nursery.x,3.4,nursery.y),42)
-	var shop: Vector2=BUSINESS_POS*WORLD/100
-	stage.add("shop",Vector3(shop.x,0,shop.y),1.35,int(garden.get("farm",{}).get("shop_tier",0)))
-	stage.title("SHOP" if english else "МАГАЗИН",Vector3(shop.x,3.6,shop.y),42)
-	for i in Rules.REPAIRS.size():
-		var point: Vector2=Rules.REPAIR_POS[i]*WORLD/100
-		var restored: bool=i in garden.repairs
-		var kind: String=["gate","fountain","greenhouse","shop","pergola"][i]
-		stage.add(kind,Vector3(point.x,0,point.y),1.2 if restored else .85)
-		if not restored: stage.title("!",Vector3(point.x,1.7,point.y),72)
-	for id in garden.get("farm",{}).get("buildings",[]):
-		var point: Vector2=EXTRA_POS[int(id)]*WORLD/100
-		stage.add("house" if int(id)==0 else "counter",Vector3(point.x,0,point.y),.85)
-	for slot in Rules.PLOT_COUNT:
-		var point: Vector2=Rules.plot_position(slot)*WORLD/100
-		var id: int=int(garden.plots.get(str(slot),-1))
-		if slot==selected and preview_item>=0: id=preview_item
-		if id>=0:
-			if id<6:
-				stage.add("bed",Vector3(point.x,0,point.y),.8)
-				for j in 3: stage.add("flower",Vector3(point.x+(j-1)*.45,.25,point.y),1.25,id)
-			else: stage.add(["bench","lamp","birdhouse","urn","cart","hive","rabbit","sundial"][id-6],Vector3(point.x,0,point.y),.85)
-		elif editing:
-			var b=Models.new(); b.cylinder(Vector3.ZERO,.48,.05,Color("c9d79e"))
-			var empty:=MeshInstance3D.new(); empty.mesh=b.finish(); empty.position=Vector3(point.x,.02,point.y); stage.world.add_child(empty)
+func _draw() -> void:
+	if garden.is_empty(): return
+	landscape.position=screen_point(Vector2.ZERO); landscape.size=WORLD*zoom
+	draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
+	# Doors belong to the painted buildings. Labels appear only on a selected building.
+	for id in EXTRA_POS.size():
+		if id in garden.get("farm",{}).get("buildings",[]):
+			var position: Vector2=EXTRA_POS[id]*WORLD
+			decor(position-Vector2(0,50),150,9 if id==0 else 8)
+			draw_string(ThemeDB.fallback_font,position+Vector2(-95,112),("BEES" if id==0 else "BOUQUETS") if english else ("ПЧЁЛЫ" if id==0 else "БУКЕТЫ"),HORIZONTAL_ALIGNMENT_LEFT,-1,32,Color("fff5d7"))
+	var active_zone: int=visible_area()
+	for slot in sorted_plots:
+		var p: Vector2=Rules.plot_position(slot)*WORLD
+		if not Rect2(Vector2.ZERO,size).grow(220*zoom).has_point(screen_point(p)): continue
+		var id:=int(garden.plots.get(str(slot),-1))
+		var ghost: bool=slot==selected and preview_item>=0
+		if ghost: id=preview_item
+		if slot==selected:
+			draw_set_transform(size/2-camera*zoom+p*zoom,0,Vector2(1,.5)*zoom)
+			draw_circle(Vector2.ZERO,115,Color(1,.87,.5,.25))
+			draw_arc(Vector2.ZERO,114,0,TAU,40,Color("fff1a6"),5,true)
+			draw_set_transform(size/2-camera*zoom,0,Vector2.ONE*zoom)
+		if id>=0 and id<6:
+			var unit:=Vector2(BEDS.get_width()/3.0,BEDS.get_height()/2.0)
+			draw_texture_rect_region(BEDS,Rect2(p-Vector2(115,170),Vector2.ONE*230),Rect2(Vector2(id%3,id/3)*unit,unit),Color(1,1,1,.72 if ghost else 1),false,true)
+		elif id>=6: decor(p-Vector2(0,58),110,int(Rules.ITEMS[id][3]),.72 if ghost else 1)
+		elif interactive and editing and slot/6==active_zone:
+			draw_circle(p,32,Color(.13,.29,.20,.28),true,-1,true)
+			draw_arc(p,32,0,TAU,24,Color("fff1b9"),3,true)
+			draw_line(p-Vector2(12,0),p+Vector2(12,0),Color("fff8dc"),4,true)
+			draw_line(p-Vector2(0,12),p+Vector2(0,12),Color("fff8dc"),4,true)
+	# Commemorative landmarks are part of the world, independent of paid plots.
 	for id in garden.get("story",{}).get("milestones",[]):
 		var gift: Array=Rules.Story.MILESTONES[int(id)]
-		var point: Vector2=gift[6]*WORLD/100
-		stage.add("fountain" if int(id)%3==0 else "bench" if int(id)%3==1 else "lamp",Vector3(point.x,0,point.y),.65)
-	var cat=Models.new()
-	cat.ball(Vector3(0,.22,0),Vector3(.65,.45,.42),Color("dbb07c")); cat.ball(Vector3(-.23,.43,0),Vector3(.33,.33,.33),Color("e3bc88"))
-	for side in [-1,1]: cat.cylinder(Vector3(-.23,.63,side*.10),.08,.17,Color("e3bc88"),0)
-	var cat_model:=MeshInstance3D.new(); cat_model.mesh=cat.finish(); cat_model.position=Vector3(15.2,0,7.9); stage.world.add_child(cat_model)
+		var place: Vector2=gift[6]*WORLD
+		if Rect2(Vector2.ZERO,size).grow(150*zoom).has_point(screen_point(place)):
+			decor(place-Vector2(0,55),90,int(gift[5]))
+	var next_repair: int=-1
+	for i in Rules.REPAIRS.size():
+		if i not in garden.repairs: next_repair=i; break
+	for index in Rules.REPAIRS.size():
+		var restored: bool=index in garden.repairs
+		var p: Vector2=Rules.REPAIR_POS[index]*WORLD
+		if restored:
+			var choice: int=int(garden.get("story",{}).get("styles",{}).get(str(index),0))
+			var color: Color=[Color("b8b5ff"),Color("ff94c0"),Color("ffe590")][choice]
+			for side in [-1,1]:
+				var pos:=p+Vector2(side*145,20)
+				decor(pos,52,3 if choice==1 else 8 if choice==2 else 2)
+				draw_arc(pos+Vector2(0,22),48,0,PI,16,color,4,true)
+		if index==0 and restored: continue
+		if interactive and index==next_repair:
+			var pin:=p+Vector2(0,76)
+			draw_circle(pin+Vector2(0,6),35,Color(.1,.22,.1,.3),true,-1,true)
+			draw_circle(pin,34,Color("fff3c7"),true,-1,true)
+			draw_arc(pin,34,0,TAU,28,Color("cf9e43"),4,true)
+			draw_string(ThemeDB.fallback_font,pin+Vector2(-7,13),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,40,Color("846025"))
+	draw_set_transform(Vector2.ZERO)
 	if garden.get("story",{}).get("evening",false):
-		stage.sun.light_color=Color("bcaed8"); stage.sun.light_energy=.5
-	stage.sun.shadow_enabled=not reduced
-
-func _draw() -> void:
-	pass
+		draw_rect(Rect2(Vector2.ZERO,size),Color(.06,.10,.25,.40))
+	# Lightweight top shade keeps floating labels legible, without a full-screen filter.
+	if interactive:
+		for i in 12:
+			draw_rect(Rect2(0,i*14,size.x,15),Color(.04,.16,.12,.32*(1-float(i)/12)))

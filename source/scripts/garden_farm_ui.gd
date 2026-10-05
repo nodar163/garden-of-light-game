@@ -60,6 +60,7 @@ func english() -> bool: return game.store.data.settings.language=="en"
 func g() -> Dictionary: return game.store.data.garden
 
 func _screen(name_value: String,title: String) -> void:
+	Farm.ensure(g())
 	game.clear_page(name_value)
 	game.header(title)
 	var scroll:=ScrollContainer.new()
@@ -74,7 +75,7 @@ func _screen(name_value: String,title: String) -> void:
 	game.root_box=body
 
 func _art(kind: String,height: int,variant: int=0) -> void:
-	var image=preload("res://scripts/model_preview.gd").new(); image.kind=kind; image.variant=variant
+	var image=preload("res://scripts/illustrated_preview.gd").new(); image.kind=kind; image.variant=variant
 	image.custom_minimum_size.y=height; image.size_flags_horizontal=Control.SIZE_EXPAND_FILL; game.root_box.add_child(image)
 
 func _text(value: String,font_size: int=24) -> void:
@@ -92,7 +93,7 @@ func place(kind: String) -> void:
 	var heading: Label=HUD.text(top,words("ОГОРОД","NURSERY") if kind=="nursery" else words("МАГАЗИН","SHOP"),28,Color("fff5d5"))
 	heading.size_flags_horizontal=Control.SIZE_EXPAND_FILL; heading.vertical_alignment=VERTICAL_ALIGNMENT_CENTER
 	var money: Label=HUD.text(top,str(int(g().coins)),23,Color("ffdf8f")); money.vertical_alignment=VERTICAL_ALIGNMENT_CENTER; money.autowrap_mode=TextServer.AUTOWRAP_OFF
-	var map=preload("res://scripts/farm_world_3d.gd").new(); map.game=game; map.mode=kind
+	var map=preload("res://scripts/farm_world.gd").new(); map.game=game; map.mode=kind
 	map.size_flags_vertical=Control.SIZE_EXPAND_FILL; map.size_flags_horizontal=Control.SIZE_EXPAND_FILL
 	var help:=HUD.card(game.root_box)
 	var tip: Label=HUD.text(help,"",22)

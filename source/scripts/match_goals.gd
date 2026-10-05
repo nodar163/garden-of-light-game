@@ -6,11 +6,11 @@ func _ready() -> void:
 	mouse_filter=Control.MOUSE_FILTER_IGNORE
 	for c in 6:
 		if int(model.level.targets[c])>0:
-			var icon=preload("res://scripts/model_preview.gd").new(); icon.variant=c; icon.size=Vector2(56,56); add_child(icon); icons.append(icon)
+			var icon=preload("res://scripts/illustrated_preview.gd").new(); icon.variant=c; icon.size=Vector2(56,56); add_child(icon); icons.append(icon)
 	if model.level.dew.any(func(d): return int(d)>0):
-		var icon=preload("res://scripts/model_preview.gd").new(); icon.kind="ice"; icon.size=Vector2(56,56); add_child(icon); icons.append(icon)
+		var icon=preload("res://scripts/illustrated_preview.gd").new(); icon.kind="ice"; icon.size=Vector2(56,56); add_child(icon); icons.append(icon)
 	if model.obstacles.any(func(d): return int(d)>0):
-		var icon=preload("res://scripts/model_preview.gd").new(); icon.kind="stone"; icon.size=Vector2(56,56); add_child(icon); icons.append(icon)
+		var icon=preload("res://scripts/illustrated_preview.gd").new(); icon.kind="stone"; icon.size=Vector2(56,56); add_child(icon); icons.append(icon)
 	resized.connect(queue_redraw)
 
 func _gui_input(_event: InputEvent) -> void:

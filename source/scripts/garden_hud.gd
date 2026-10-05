@@ -31,7 +31,7 @@ static func card(parent: Node) -> VBoxContainer:
 	return box
 
 static func face(parent: Node) -> void:
-	var v=preload("res://scripts/model_preview.gd").new(); v.kind="person"; v.variant=4; v.custom_minimum_size=Vector2(92,112); parent.add_child(v)
+	var v:=TextureRect.new(); v.texture=preload("res://assets/jack.png"); v.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; v.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; v.custom_minimum_size=Vector2(92,112); parent.add_child(v)
 
 func _init(host: Control,screen: String) -> void:
 	game=host; game.clear_page(screen)
