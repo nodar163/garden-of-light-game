@@ -4,7 +4,7 @@ const STEPS=[
 	["Первый цветущий уголок","The first flowerbed","Посади любые цветы у домика.","Plant flowers by the cottage."],
 	["Дорога домой","The path home","Пройди 3 новых уровня в любом режиме.","Complete 3 new levels in either mode."],
 	["Снова открыто","Open again","Восстанови вход в сад.","Restore the garden entrance."],
-	["Букет для Анны","A bouquet for Anna","Выполни первый заказ в разделе «Букеты».","Complete your first order in Bouquets."],
+	["Букет для Анны","A bouquet for Anna","Продай первый букет Анне в магазине.","Sell your first bouquet to Anna in the shop."],
 	["Первый вечер","Our first evening","Пройди 12 уровней. Зажжём огни вместе.","Complete 12 levels. Let's light the garden."],
 	["Вода возвращается","Water returns","Восстанови фонтан и выбери оформление.","Restore the fountain and choose its style."],
 	["Бабушкин дневник","Grandma's journal","Восстанови теплицу: там сохранились записи о цветах.","Restore the greenhouse and discover the flower journal."],
@@ -60,7 +60,7 @@ static func ready(g: Dictionary,id: int) -> bool:
 			return false
 		1: return g.earned.size()>=3
 		2: return 0 in g.repairs
-		3: return 0 in g.story.deliveries
+		3: return 0 in g.story.deliveries or int(g.get("farm",{}).get("orders_done",0))>0
 		4: return g.earned.size()>=12
 		_: return id-4 in g.repairs
 

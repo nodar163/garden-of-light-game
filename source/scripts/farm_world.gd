@@ -60,7 +60,7 @@ func refresh() -> void:
 			elif i in g().farm.prepared: caption=words("Посадить","Plant")
 			badge(caption,projected(BED_POS[i])+Vector2(0,size.x*.032),size.x*.32)
 			var unlocked: bool=g().earned.size()>=int(Farm.SPECIES[i][6])
-			badge(str(int(Farm.SPECIES[i][7])) if unlocked else words("%d побед","%d wins") % int(Farm.SPECIES[i][6]),projected(seed_pos(i))+Vector2(0,size.x*.023),size.x*.14)
+			badge(str(int(Farm.SPECIES[i][7])) if unlocked else words("%d ур.","%d wins") % int(Farm.SPECIES[i][6]),projected(seed_pos(i))+Vector2(0,size.x*.023),size.x*.14)
 		for i in 3: badge(words(["Лопатка","Лейка","Корзина"][i],["Spade","Water","Basket"][i]),projected(TOOL_POS[i])+Vector2(0,size.x*.075),size.x*.23)
 	else:
 		var counts: Array=Farm.draft_counts(g())

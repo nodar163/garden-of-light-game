@@ -36,6 +36,9 @@ static func valid(g: Variant) -> bool:
 		if not typeof(g.get(key)) in [TYPE_INT,TYPE_FLOAT] or float(g[key])!=int(g[key]) or int(g[key])<0: return false
 	if g.has("story") and not Story.valid(g.story): return false
 	if g.has("farm") and not Farm.valid(g.farm): return false
+	if g.has("prologue_step"):
+		var step: Variant=g.prologue_step
+		if not typeof(step) in [TYPE_INT,TYPE_FLOAT] or float(step)!=int(step) or int(step)<0 or int(step)>6: return false
 	if int(g.coins)>1000000 or int(g.orders)>50 or int(g.intro_step)>3: return false
 	if not g.get("intro_done") is bool or not g.get("plots") is Dictionary or not g.get("earned") is Array or not g.get("repairs") is Array: return false
 	if not g.get("camera") is Array or g.camera.size()!=3: return false

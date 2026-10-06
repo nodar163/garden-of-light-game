@@ -21,11 +21,11 @@ func run() -> void:
 		if FileAccess.file_exists(game.store.path+suffix): DirAccess.remove_absolute(game.store.path+suffix)
 	game.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT); root.add_child(game)
 	await process_frame
-	check(game.page=="intro","first launch begins with Jack")
+	check(game.page=="prologue","first launch begins with Jack")
 	check(not game.sound.nature.playing and game.sound.music.playing,"menu melody without nature")
 	await capture("intro")
-	game.garden_ui.next_intro(); await capture("ruins")
-	game.garden_ui.next_intro(); game.garden_ui.next_intro()
+	game.root_box.get_child(0).finish(); await process_frame
+	game.garden_ui.run_goal(); game.garden_ui.preview(0)
 	check(game.page=="garden" and game.garden_ui.pending==0,"guided first planting preview")
 	check(game.store.data.garden.coins==50,"preview does not spend")
 	await capture("first-plant")
@@ -33,7 +33,7 @@ func run() -> void:
 	check(game.store.data.garden.coins==0 and game.store.data.garden.plots.size()==1,"first purchase committed once")
 	game.garden_ui.purchase()
 	check(game.store.data.garden.coins==0,"repeated purchase event cannot double charge")
-	game.garden_ui.finish_intro(); await capture("home")
+	game.show_home(); await capture("home")
 	check(game.store.data.garden.intro_done,"intro completion persists")
 	game.store.data.completed=range(1,21); Rules.sync(game.store.data)
 	game.garden_ui.slot=1; game.garden_ui.shop(); await capture("shop")

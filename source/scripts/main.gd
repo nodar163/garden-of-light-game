@@ -19,6 +19,7 @@ var light_session_won:=false
 var match_session_won:=false
 var reward_garden_button: Button
 var match_garden_button: Button
+var match_rest_button: Button
 var match_model = MatchRules.new()
 var match_levels: Array = []
 var match_group := -1
@@ -171,7 +172,7 @@ func style(color: Color, border: Color) -> StyleBoxFlat:
 	return result
 
 func button(text_value: String, action: Callable, parent: Node = null, primary: bool = false) -> Button:
-	var result := Button.new()
+	var result := preload("res://scripts/touch_button.gd").new()
 	result.text = text_value
 	result.custom_minimum_size.y = 70
 	result.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -549,6 +550,7 @@ func open_match(id: int) -> void:
 	button(words("Уровни", "Levels"),show_match_levels,row)
 	match_next=button(words("Следующий букет  ›", "Next bouquet  ›"),advance_match,null,true)
 	match_garden_button=button(words("Улучшить сад", "Improve the garden"),show_garden)
+	match_rest_button=button(words("Передышка · знакомый уровень","Take a break · familiar level"),match_rest)
 	refresh_match()
 	save_match()
 	tutorial.maybe_open("match")
@@ -562,6 +564,7 @@ func refresh_match() -> void:
 	match_goals.queue_redraw()
 	match_moves.text=words("Ходов осталось: ","Moves left: ")+str(match_model.moves)
 	var victory: bool=match_model.won()
+	match_rest_button.visible=not victory and match_model.moves<=0 and not store.data.match3.completed.is_empty()
 	match_next.visible=victory
 	match_garden_button.visible=victory
 	match_garden_button.text=words("Улучшить сад · ","Improve garden · ")+str(store.data.garden.coins)+words(" монет"," coins")
@@ -607,6 +610,14 @@ func restart_match() -> void:
 	var id: int=int(match_model.level.id)
 	store.data.match3.boards.erase(str(id))
 	open_match(id)
+
+func match_rest() -> void:
+	if match_view.busy or store.data.match3.completed.is_empty(): return
+	var id: int=int(store.data.match3.completed.min())
+	# Keep the hard board saved. Only a previously completed board is restarted.
+	store.data.match3.boards.erase(str(id))
+	open_match(id)
+	match_message.text=words("Спокойная передышка. Победа растит цветы; монеты повторно не выдаются.","A gentle break. Winning grows flowers; coins are not awarded twice.")
 
 func advance_match() -> void:
 	var id: int=int(match_model.level.id)

@@ -20,7 +20,7 @@ func _ready() -> void:
 func reset(key: String, page: int) -> void:
 	if animation: animation.kill()
 	section=key; step=page; complete=false; selected=false; amount=0; queue_redraw()
-	if caption: caption.text=("Tap the highlighted example" if english else "Нажми на подсвеченный пример") if key in ["garden","light"] else ("Object → target: drag or tap both" if english else "Предмет → цель: перетащи или коснись обоих")
+	if caption: caption.text=("Tap the highlighted example" if english else "Нажми на подсвеченный пример") if key in ["garden","light"] else ("Object > target: drag or tap both" if english else "Предмет > цель: перетащи или коснись обоих")
 func source() -> Vector2: return Vector2(size.x*.23,57)
 func target() -> Vector2: return Vector2(size.x*.77,57)
 func perform() -> void:

@@ -15,9 +15,7 @@ var repair_index:=-1
 var pending:=-1
 var category:=0
 var message:=""
-var tutorial_plant:=false
 var replay:=false
-var story_step:=0
 var business: RefCounted
 var journal_view: RefCounted
 
@@ -44,43 +42,10 @@ func make_map(height: int,interactive: bool=true) -> Control:
 		view.place_selected.connect(select_place); view.view_changed.connect(save_view)
 	return view
 
-func intro(start: int=-1) -> void:
-	if start>=0: story_step=start
-	else: story_step=int(g().intro_step)
-	game.clear_page("intro")
-	game.label(words("САД ДЖЕКА · НАЧАЛО","JACK'S GARDEN · THE BEGINNING"),22)
-	game.label([words("Давай знакомиться","Meet Jack"),words("После ночной бури","After the storm"),words("Начнём с одного цветка","One flower at a time"),words("Первые цветы снова дома","The first flowers are home")][story_step],40)
-	if story_step==1:
-		make_map(430,false)
-	else:
-		var portrait=preload("res://scripts/illustrated_preview.gd").new(); portrait.kind="person"; portrait.variant=0
-		portrait.custom_minimum_size.y=390; portrait.size_flags_vertical=Control.SIZE_EXPAND_FILL
-		game.root_box.add_child(portrait)
-	var ru=["Я Джек. Здесь я выращивал цветы и собирал букеты для наших соседей. Для каждого праздника находился свой цветок.","Ночью буря разрушила клумбы, повредила теплицу и закрыла путь к лавке. Но семена уцелели. Поможешь вернуть саду жизнь?","У меня осталось 50 садовых монет — хватит на первые космеи. Потом будем проходить уровни: каждое новое решение принесёт ещё 25 монет.","Посмотри, уже стало уютнее! Выбирай любой режим, зарабатывай монеты и возвращайся ко мне. Вместе мы снова откроем цветочную лавку."]
-	var en=["I'm Jack. I grew flowers here and made bouquets for our neighbours. There was a flower for every celebration.","A night storm ruined the flowerbeds, damaged the greenhouse and blocked the stall. But the seeds survived. Will you help bring the garden back?","I saved 50 garden coins, enough for our first cosmos. Then we'll play levels: every new solution earns another 25 coins.","It already feels like home! Choose either mode, earn coins and come back. Together we'll open the flower stall again."]
-	game.label(words(ru[story_step],en[story_step]),27)
-	game.label("%d / 4" % (story_step+1),18,game.MUTED)
-	game.button(words("Посмотреть сад","See the garden") if story_step==0 else words("Помочь Джеку","Help Jack") if story_step==1 else words("Посадить первые цветы","Plant the first flowers") if story_step==2 else words("К уровням","Choose a mode"),next_intro,null,true)
-	game.button(words("Позже · в меню","Later · main menu"),finish_intro)
-
-func next_intro() -> void:
-	if story_step<2:
-		story_step+=1
-		if not replay: g().intro_step=story_step; game.store.write()
-		intro(story_step)
-	elif story_step==2:
-		g().intro_done=true; g().intro_step=3
-		game.store.write()
-		if g().plots.is_empty():
-			tutorial_plant=true; slot=0; pending=0; repair_index=-1
-			g().camera=[Rules.plot_position(0).x*3200,Rules.plot_position(0).y*2400,.5]
-			show()
-		else: finish_intro()
-	else: finish_intro()
-
-func finish_intro() -> void:
-	g().intro_done=true; g().intro_step=3; game.store.write()
-	replay=false; game.show_home()
+func intro(_start: int=-1) -> void:
+	game.clear_page("prologue")
+	var memory=preload("res://scripts/prologue.gd").new(); memory.host=game; memory.replay=replay or g().intro_done
+	game.root_box.add_child(memory)
 
 func home() -> void:
 	move_source=-1
@@ -99,12 +64,7 @@ func home() -> void:
 	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 500; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
-	var new_scene: bool=Farm.story_ready(g(),Farm.next_story(g()))
-	var first_bouquet_ready: bool=false
-	if int(g().farm.orders_done)==0 and not new_scene:
-		for bed in g().farm.beds.values():
-			if int(bed.growth)>=3: first_bouquet_ready=true
-	game.button(words("Новая глава: Джек и Лилия  ›","New chapter: Jack and Lily  ›") if new_scene else words("Найти огород: первый букет  ›","Find the nursery: first bouquet  ›") if first_bouquet_ready else words("История сада  ›","Garden story  ›") if Story.next(g())<Story.STEPS.size() else words("Открытия сада  ›","Garden discoveries  ›"),business.story if new_scene else find_nursery if first_bouquet_ready else journal,hud.content,true)
+	game.button(words("К следующему шагу  ›","Take the next step  ›"),run_goal,hud.content,true)
 	var light: bool=g().story.last_mode=="light"
 	var id: int=game.unlocked() if light else game.match_unlocked()
 	hud.play_button((words("Дорожки света","Light paths") if light else words("Цветочный каскад","Flower Cascade"))+words("\nИграть · уровень ","\nPlay · level ")+str(id),func(): game.open_level(id) if light else game.open_match(id))
@@ -118,22 +78,47 @@ func find_nursery() -> void:
 	message=words("Коснись здания «Огород», чтобы войти.","Tap the Nursery building to enter.")
 	move_source=-1; slot=-1; repair_index=-1; pending=-1; show()
 
-func task_title() -> String:
-	var step: int=Story.next(g())
-	if step<Story.STEPS.size(): return title_of(Story.STEPS[step])
-	for id in Story.MILESTONES.size():
-		if id not in g().story.milestones: return Story.MILESTONES[id][2 if english() else 1]
-	return words("Сад, который создали мы","A garden we made together")
+func next_goal() -> Dictionary:
+	# One actionable goal; optional stories remain available in the journal.
+	if g().plots.is_empty() and g().coins<50: return {"action":"play","title":words("Монеты для первых цветов","Coins for our first flowers"),"detail":words("Новая победа даёт 25 монет. Космеи стоят 50.","A new win earns 25 coins. Cosmos cost 50.")}
+	if g().plots.is_empty(): return {"action":"plant","title":words("Первый живой уголок","Our first living corner"),"detail":words("Посади космеи у дома за 50 монет.","Plant cosmos by the cottage for 50 coins.")}
+	var chapter: int=Story.next(g())
+	if chapter<Story.STEPS.size() and Story.ready(g(),chapter): return {"action":"journal","title":title_of(Story.STEPS[chapter]),"detail":words("Готово! Узнай, что изменилось в саду.","Done! See what changed in the garden.")}
+	if Farm.can_enter(g(),"shop") and int(g().farm.orders_done)==0:
+		var stock:=0
+		for amount in g().farm.stock: stock+=int(amount)
+		if stock>0: return {"action":"shop","title":words("Анна снова ждёт букет","Anna is waiting again"),"detail":words("Цветы уже на витрине. Собери и продай первый букет.","Flowers are on the display. Make and sell your first bouquet.")}
+	if Farm.can_enter(g(),"nursery") and int(g().farm.orders_done)==0 and g().farm.stock.all(func(amount): return int(amount)==0):
+		if g().farm.beds.is_empty(): return {"action":"nursery","title":words("Цветы для возвращения Анны","Flowers for Anna's return"),"detail":words("Посади бесплатные космеи в огороде.","Plant free cosmos in the nursery.")}
+		for bed in g().farm.beds.values():
+			if int(bed.growth)==3: return {"action":"nursery","title":words("Первый урожай готов","Our first harvest is ready"),"detail":words("Перенеси цветы с грядки в корзину.","Move the flowers from their bed into the basket.")}
+			if not bed.get("watered",false): return {"action":"nursery","title":words("Поможем цветам вырасти","Help the flowers grow"),"detail":words("Полей грядку, затем проходи уровни.","Water the bed, then play levels.")}
+	if chapter in [1,4] and not Story.ready(g(),chapter): return {"action":"play","title":title_of(Story.STEPS[chapter]),"detail":Story.STEPS[chapter][3 if english() else 2]}
+	for id in Rules.REPAIRS.size():
+		if id in g().repairs: continue
+		var item: Array=Rules.REPAIRS[id]
+		if g().plots.size()<int(item[3]) and g().coins<50: return {"action":"play","title":words("Монеты для новых цветов","Coins for new flowers"),"detail":words("Космеи стоят 50 монет. Новые уровни дают по 25.","Cosmos cost 50 coins. New levels earn 25 each.")}
+		if g().plots.size()<int(item[3]): return {"action":"plant","title":words("Цветы вокруг будущей постройки","Flowers around our next building"),"detail":words("Посадок: %d/%d. Выбери ещё один уголок.","Plantings: %d/%d. Choose another corner.") % [g().plots.size(),int(item[3])]}
+		if g().coins<int(item[2]): return {"action":"play","title":title_of(item),"detail":words("Нужно ещё %d монет. Новая победа даёт 25.","%d more coins needed. Each new win earns 25.") % (int(item[2])-int(g().coins))}
+		return {"action":"repair","id":id,"title":title_of(item),"detail":words("Всё готово! Верни этому месту жизнь.","Everything is ready! Bring this place back to life.")}
+	if int(g().farm.orders_done)==0: return {"action":"play","title":words("Вырастим первый букет","Grow our first bouquet"),"detail":words("Победы растят цветы — повторные тоже.","Wins grow flowers, including replayed levels.")}
+	if Farm.story_ready(g(),Farm.next_story(g())): return {"action":"story","title":words("Джек и Лилия · новая глава","Jack and Lily · a new chapter"),"detail":words("Загляни в историю после проделанной работы.","See the next story after all your work.")}
+	return {"action":"journal","title":words("Сад, который создали мы","A garden we made together"),"detail":words("Открывай новые истории, сорта и украшения.","Discover new stories, flowers and decorations.")}
 
-func task_detail() -> String:
-	var step: int=Story.next(g())
-	if step>=Story.STEPS.size():
-		for id in Story.MILESTONES.size():
-			if id not in g().story.milestones:
-				var goal: int=int(Story.MILESTONES[id][0])
-				return words("Награда готова — добавь её в сад.","Gift ready — add it to the garden.") if Story.milestone_ready(g(),id) else words("Новые уровни: %d/%d","New levels: %d/%d") % [g().earned.size(),goal]
-		return words("Выбирай цветы, собирай букеты и украшай сад.","Choose flowers, make bouquets and decorate.")
-	return words("Готово! Джек ждёт тебя.","Ready! Jack is waiting for you.") if Story.ready(g(),step) else Story.STEPS[step][3 if english() else 2]
+func task_title() -> String: return next_goal().title
+func task_detail() -> String: return next_goal().detail
+func run_goal() -> void:
+	var goal:=next_goal()
+	match goal.action:
+		"plant": open_shop()
+		"play": game.open_level(game.unlocked()) if g().story.last_mode=="light" else game.open_match(game.match_unlocked())
+		"nursery": find_nursery()
+		"shop":
+			move_source=-1; slot=-1; repair_index=-1; pending=-1
+			message=words("Коснись открытой лавки, чтобы собрать букет.","Tap the open shop to make a bouquet."); show(); map_view.focus_place("repair",3)
+		"repair": select_place("repair",int(goal.id)); map_view.focus_place("repair",int(goal.id))
+		"story": business.story()
+		_: journal()
 
 func journal() -> void:
 	if Story.next(g())>=Story.STEPS.size(): journey()
@@ -310,8 +295,7 @@ func purchase() -> void:
 		message=words("Покупка не сохранена. Монеты не списаны.","Purchase was not saved. No coins charged."); show(); return
 	pending=-1; message=words("Джек: «Как красиво! Сад снова оживает». ","Jack: “Beautiful! The garden is coming back to life.”")
 	game.sound.play_match("match")
-	if tutorial_plant: tutorial_plant=false; intro(3)
-	else: show()
+	show()
 
 func remove_item() -> void:
 	if game.store.garden_transaction(func(data): return Rules.remove(data,slot)):
@@ -356,14 +340,13 @@ func show_repair() -> void:
 			game.button(words("Заработать монеты в уровнях","Earn coins in levels"),modes)
 
 func restore() -> void:
-	if game.store.garden_transaction(func(data): return Rules.repair(data,repair_index)):
-		message=words("Джек: «Ещё один уголок снова стал нашим!»","Jack: “Another part of the garden is ours again!”")
-		game.sound.play_match("win")
-	else: message=words("Не удалось сохранить восстановление.","Could not save the restoration.")
-	show()
-	if not game.store.data.settings.reduce_motion:
-		map_view.modulate.a=.55
-		map_view.create_tween().tween_property(map_view,"modulate:a",1.0,.45)
+	if not game.store.garden_transaction(func(data): return Rules.repair(data,repair_index)):
+		message=words("Не удалось сохранить восстановление.","Could not save the restoration."); show(); return
+	game.sound.play_match("win")
+	game.clear_page("repair_reveal")
+	game.label(words("ЕЩЁ ОДИН УГОЛОК ОЖИЛ","ANOTHER CORNER RESTORED"),30)
+	var reveal=preload("res://scripts/repair_reveal.gd").new(); reveal.host=game; reveal.repair_id=repair_index
+	game.root_box.add_child(reveal)
 
 func help() -> void:
 	game.clear_page("garden_help"); game.header(words("Лавка Джека","Jack's flower stall"))
