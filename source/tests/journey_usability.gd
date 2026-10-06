@@ -77,5 +77,9 @@ func run() -> void:
 					for other in visible: check(not b.get_global_rect().intersects(other.get_global_rect()),"buttons do not overlap: "+b.text)
 					visible.append(b)
 				if dimensions==Vector2i(320,568) and language=="ru" and game.page in ["match","settings","home"]: await capture(game.page)
+	game.garden_ui.open_garden(); game.garden_ui.more_menu(); await settle()
+	for popup in game.get_children():
+		if popup is PopupMenu:
+			check(popup.size.y>=popup.item_count*100,"popup rows have finger-sized targets"); popup.hide()
 	game.queue_free(); await process_frame
 	print("Journey usability checks=",checks," failures=",failures); quit(1 if failures else 0)

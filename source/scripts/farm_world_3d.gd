@@ -357,6 +357,7 @@ func confirm_replant(slot: int) -> void:
 	dialog.dialog_text=words("Этот посев будет убран. Земля останется подготовленной для нового сорта; собранные цветы в корзине сохранятся.","This planting will be removed. The soil stays prepared for another variety; flowers already in your basket are kept.")
 	dialog.get_label().autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
 	dialog.ok_button_text=words("Убрать посев","Clear planting"); dialog.cancel_button_text=words("Оставить","Keep it")
+	for target in [dialog.get_ok_button(),dialog.get_cancel_button()]: target.custom_minimum_size=Vector2(160,100)
 	dialog.confirmed.connect(func():
 		if game.store.garden_transaction(func(data): return Farm.uproot(data,slot)):
 			message=words("Земля готова для нового сорта.","The soil is ready for another variety."); refresh(); bed_selected.emit(slot)

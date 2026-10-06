@@ -208,7 +208,7 @@ func show() -> void:
 
 func more_menu() -> void:
 	var popup:=PopupMenu.new(); game.add_child(popup)
-	popup.add_theme_font_size_override("font_size",28); popup.add_theme_constant_override("v_separation",24)
+	popup.add_theme_font_size_override("font_size",28); popup.add_theme_constant_override("v_separation",70)
 	for title in [words("Участки сада","Garden areas"),words("Фото сада","Garden photo"),words("Старые заказы","Old orders"),words("История Джека и Лилии","Jack and Lily's story")]: popup.add_item(title)
 	popup.id_pressed.connect(_more_option)
 	popup.popup_hide.connect(popup.queue_free)
@@ -224,7 +224,7 @@ func _more_option(id: int) -> void:
 func areas() -> void:
 	var popup:=PopupMenu.new(); game.add_child(popup)
 	var names: Array=[words("У домика","Cottage garden"),words("Розовая аллея","Rose walk"),words("Солнечная поляна","Sunny meadow"),words("Тихий уголок","Quiet corner"),words("У пруда","Pond garden")]
-	popup.add_theme_font_size_override("font_size",28); popup.add_theme_constant_override("v_separation",24)
+	popup.add_theme_font_size_override("font_size",28); popup.add_theme_constant_override("v_separation",70)
 	for i in names.size(): popup.add_item(names[i],i)
 	popup.id_pressed.connect(func(id): slot=-1; repair_index=-1; pending=-1; show(); map_view.focus_place("plot",id*6))
 	popup.popup_hide.connect(popup.queue_free); popup.popup_centered(Vector2i(550,430))

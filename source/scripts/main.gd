@@ -638,7 +638,7 @@ func show_starter() -> void:
 	var menu:=PopupMenu.new()
 	add_child(menu)
 	menu.add_theme_font_size_override("font_size",32)
-	menu.add_theme_constant_override("v_separation",42)
+	menu.add_theme_constant_override("v_separation",70)
 	menu.min_size=Vector2i(360,270)
 	for i in 3:
 		menu.add_item(words(["Луч","Бомба","Радуга"][i],["Rocket","Bomb","Rainbow"][i]),i)
@@ -657,6 +657,9 @@ func show_backup() -> void:
 	var feedback:=label("",22)
 	button(words("Восстановить из текста","Restore from text"),func():
 		var dialog:=ConfirmationDialog.new(); dialog.dialog_text=words("Текущий прогресс будет заменён этой копией. Продолжить?","This backup will replace your current progress. Continue?"); add_child(dialog)
+		dialog.get_label().autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
+		dialog.ok_button_text=words("Восстановить","Restore"); dialog.cancel_button_text=words("Отмена","Cancel")
+		for target in [dialog.get_ok_button(),dialog.get_cancel_button()]: target.custom_minimum_size=Vector2(160,100)
 		dialog.confirmed.connect(func():
 			if store.import_copy(field.text): sound.configure(store.data.settings); show_home()
 			else: feedback.text=words("Копия повреждена или не сохранена. Текущий прогресс сохранён.","Invalid backup or save failed. Current progress is safe."))
