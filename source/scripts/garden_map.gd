@@ -4,6 +4,8 @@ signal view_changed(camera: Array)
 signal cat_selected
 signal nursery_selected
 signal shop_selected
+signal house_selected
+signal estate_selected
 signal tapped
 const Rules=preload("res://scripts/garden_rules.gd")
 const Flowers=preload("res://scripts/match_art.gd")
@@ -131,6 +133,8 @@ func _gui_input(event: InputEvent) -> void:
 			changed(); accept_event()
 
 func select_at(point: Vector2) -> void:
+	if screen_point(Vector2(.2,.22)*WORLD).distance_to(point)<maxf(48,160*zoom): house_selected.emit(); return
+	if screen_point(Vector2(.47,.95)*WORLD).distance_to(point)<maxf(55,160*zoom): estate_selected.emit(); return
 	if screen_point(Vector2(1520,790)).distance_to(point)<maxf(28,70*zoom):
 		cat_selected.emit(); return
 	if screen_point(NURSERY_POS*WORLD).distance_to(point)<maxf(56,165*zoom):
@@ -209,7 +213,9 @@ func _draw() -> void:
 		if id>=0 and id<6:
 			var unit:=Vector2(BEDS.get_width()/3.0,BEDS.get_height()/2.0)
 			draw_texture_rect_region(BEDS,Rect2(p-Vector2(115,170),Vector2.ONE*230),Rect2(Vector2(id%3,id/3)*unit,unit),Color(1,1,1,.72 if ghost else 1),false,true)
-		elif id>=6: decor(p-Vector2(0,58),110,int(Rules.ITEMS[id][3]),.72 if ghost else 1)
+		elif id>=6:
+			var radius: float=[92,60,68,72,100,90,58,72][id-6]
+			decor(p-Vector2(0,radius*.75),radius,int(Rules.ITEMS[id][3]),.72 if ghost else 1)
 		elif interactive and editing and slot/6==active_zone:
 			draw_circle(p,32,Color(.13,.29,.20,.28),true,-1,true)
 			draw_arc(p,32,0,TAU,24,Color("fff1b9"),3,true)
@@ -227,13 +233,6 @@ func _draw() -> void:
 	for index in Rules.REPAIRS.size():
 		var restored: bool=index in garden.repairs
 		var p: Vector2=Rules.REPAIR_POS[index]*WORLD
-		if restored:
-			var choice: int=int(garden.get("story",{}).get("styles",{}).get(str(index),0))
-			var color: Color=[Color("b8b5ff"),Color("ff94c0"),Color("ffe590")][choice]
-			for side in [-1,1]:
-				var pos:=p+Vector2(side*145,20)
-				decor(pos,52,3 if choice==1 else 8 if choice==2 else 2)
-				draw_arc(pos+Vector2(0,22),48,0,PI,16,color,4,true)
 		if index==0 and restored: continue
 		if interactive and index==next_repair:
 			var pin:=p+Vector2(0,76)
@@ -242,6 +241,11 @@ func _draw() -> void:
 			draw_arc(pin,34,0,TAU,28,Color("cf9e43"),4,true)
 			draw_string(ThemeDB.fallback_font,pin+Vector2(-7,13),"!",HORIZONTAL_ALIGNMENT_LEFT,-1,40,Color("846025"))
 	draw_set_transform(Vector2.ZERO)
+	if interactive:
+		for entry in [[Vector2(.2,.22),"Дом","Home"],[Vector2(.47,.95),"Усадьба","Estate"]]:
+			var at:=screen_point(entry[0]*WORLD)
+			draw_style_box(preload("res://scripts/garden_hud.gd").plate(Color("fff6dd"),12),Rect2(at-Vector2(65,23),Vector2(130,46)))
+			draw_string(ThemeDB.fallback_font,at-Vector2(60,-8),entry[2 if english else 1],HORIZONTAL_ALIGNMENT_CENTER,120,23,Color("315445"))
 	if garden.get("story",{}).get("evening",false):
 		draw_rect(Rect2(Vector2.ZERO,size),Color(.06,.10,.25,.40))
 	# Lightweight top shade keeps floating labels legible, without a full-screen filter.

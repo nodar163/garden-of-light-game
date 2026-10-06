@@ -25,7 +25,7 @@ func _draw() -> void:
 		draw_colored_polygon(PackedVector2Array([center+Vector2(-radius*.9,-radius*.15),center+Vector2(radius*.9,-radius*.15),center+Vector2(radius*.23,radius),center+Vector2(-radius*.23,radius)]),paper)
 		for i in flowers.size():
 			var offset:=Vector2((i-(flowers.size()-1)/2.0)*radius*.62,-radius*.2-abs(i-1)*radius*.10)
-			Art.draw_icon(self,center+offset,radius*.62,int(flowers[i]))
+			preload("res://scripts/stem_art.gd").draw(self,center+offset+Vector2(0,radius*.42),radius*.40,int(flowers[i]),true)
 		draw_line(center+Vector2(-radius*.29,radius*.65),center+Vector2(radius*.29,radius*.65),Color("fff0bd"),maxf(3,radius*.10),true)
 	elif kind in ["flower","seed","sprout","bud"]: Art.draw_icon(self,center,radius,clampi(variant,0,5))
 	elif kind in Art.POWERS: Art.draw_icon(self,center,radius,int(Art.POWERS[kind]))
@@ -39,5 +39,5 @@ func _draw() -> void:
 		draw_line(center+Vector2(-radius*.6,-radius*.15),center+Vector2(radius*.3,-radius*.65),Color("e2d7ac"),radius*.43,true)
 	else:
 		var id:=1 if kind=="lamp" else 0
-		var cell:=Vector2(DECOR.get_width()/3.0,DECOR.get_height()/2.0)
+		var cell:=Vector2(DECOR.get_width()/4.0,DECOR.get_height()/4.0)
 		draw_texture_rect_region(DECOR,Rect2(center-Vector2.ONE*radius,Vector2.ONE*radius*2),Rect2(Vector2(id,0)*cell,cell))

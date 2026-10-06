@@ -60,6 +60,8 @@ static func ensure(g: Dictionary) -> void:
 	if not g.farm.has("album"): g.farm.album = []
 	if not g.farm.has("prepared"): g.farm.prepared = []
 	if not g.farm.has("draft"): g.farm.draft = {"flowers": [], "wrap": 0, "wrapped": false}
+	for key in ["trimmed","tied"]:
+		if not g.farm.draft.has(key): g.farm.draft[key]=false
 	for i in g.farm.prepared.size(): g.farm.prepared[i]=int(g.farm.prepared[i])
 	for i in g.farm.draft.flowers.size(): g.farm.draft.flowers[i]=int(g.farm.draft.flowers[i])
 	g.farm.draft.wrap=int(g.farm.draft.wrap)
@@ -69,6 +71,7 @@ static func ensure(g: Dictionary) -> void:
 	for bed in g.farm.beds.values():
 		for key in ["species", "tier", "growth"]: bed[key] = int(bed[key])
 		if not bed.has("watered"): bed.watered = false
+		if not bed.has("cultivated"): bed.cultivated=false
 	for i in g.farm.story_seen.size(): g.farm.story_seen[i] = int(g.farm.story_seen[i])
 	for i in g.farm.buildings.size(): g.farm.buildings[i] = int(g.farm.buildings[i])
 
@@ -87,6 +90,8 @@ static func valid(value: Variant) -> bool:
 		var draft: Variant=value.draft
 		if not draft is Dictionary or not draft.get("flowers") is Array or draft.flowers.size()>3 or not draft.get("wrapped") is bool: return false
 		if not typeof(draft.get("wrap")) in [TYPE_INT,TYPE_FLOAT] or float(draft.wrap)!=int(draft.wrap) or int(draft.wrap)<0 or int(draft.wrap)>2: return false
+		for key in ["trimmed","tied"]:
+			if draft.has(key) and not draft[key] is bool: return false
 		for flower in draft.flowers:
 			if not typeof(flower) in [TYPE_INT,TYPE_FLOAT] or float(flower)!=int(flower) or int(flower)<0 or int(flower)>5: return false
 	for key in ["harvested", "orders_done", "reputation", "shop_tier"]:
@@ -100,6 +105,7 @@ static func valid(value: Variant) -> bool:
 		var bed: Variant = value.beds[slot]
 		if not bed is Dictionary or int(bed.get("species", -1)) < 0 or int(bed.get("species", -1)) >= SPECIES.size(): return false
 		if int(bed.get("tier", -1)) < 1 or int(bed.get("tier", -1)) > 3 or int(bed.get("growth", -1)) < 0 or int(bed.get("growth", -1)) > 3: return false
+		if bed.has("cultivated") and not bed.cultivated is bool: return false
 		if bed.has("watered") and not bed.watered is bool: return false
 	var seen_scenes: Dictionary={}
 	for scene in value.story_seen:
@@ -184,12 +190,13 @@ static func harvest(g: Dictionary, slot: int) -> int:
 	var bed: Variant = g.farm.beds.get(str(slot))
 	if not bed is Dictionary or int(bed.growth) < 3: return 0
 	var species: int = int(bed.species)
-	var amount: int = mini(int(bed.tier) + 1 + (1 if 0 in g.farm.buildings else 0), 999 - int(g.farm.stock[species]))
+	var amount: int = mini(int(bed.tier) + 1 + (1 if 0 in g.farm.buildings else 0) + (1 if bed.get("cultivated",false) else 0) + companion_bonus(g,slot), 999 - int(g.farm.stock[species]))
 	if amount <= 0: return 0
 	g.farm.stock[species] += amount
 	g.farm.harvested += amount
 	bed.growth = 0
 	bed.watered = false
+	bed.cultivated=false
 	return amount
 
 static func draft_counts(g: Dictionary) -> Array:
@@ -207,6 +214,7 @@ static func arrange(g: Dictionary, species: int, position: int=-1) -> bool:
 	if position<flowers.size(): flowers[position]=species
 	else: flowers.append(species)
 	g.farm.draft.wrapped=false
+	g.farm.draft.trimmed=false; g.farm.draft.tied=false
 	return true
 
 static func return_flower(g: Dictionary, position: int) -> bool:
@@ -214,6 +222,7 @@ static func return_flower(g: Dictionary, position: int) -> bool:
 	if position<0 or position>=g.farm.draft.flowers.size(): return false
 	g.farm.draft.flowers.remove_at(position)
 	g.farm.draft.wrapped=false
+	g.farm.draft.trimmed=false; g.farm.draft.tied=false
 	return true
 
 static func wrap_bouquet(g: Dictionary, paper: int) -> bool:
@@ -250,6 +259,9 @@ static func bouquet(g: Dictionary, picked: Array) -> Dictionary:
 	if count < 1 or count > 3: return {"valid": false}
 	var quality: int = roundi(float(quality_points) / count)
 	var coins: int = 25 + 8 * count + 6 * quality + 5 * maxi(0, diversity - 1) + (5 if 1 in g.farm.buildings else 0) + 4*mini(3,int(g.farm.shop_tier)) + (8 if int(g.farm.shop_tier)>=4 else 0) + (8 if int(g.farm.shop_tier)>=5 else 0)
+	if picked==draft_counts(g):
+		coins+=(8 if g.farm.draft.get("trimmed",false) else 0)+(8 if g.farm.draft.get("tied",false) else 0)
+		if g.farm.draft.wrapped and int(g.farm.draft.wrap)==int(g.farm.orders_done)%3: coins+=6
 	return {"valid": true, "quality": quality, "coins": coins, "reputation": 2 if quality >= 2 else 1}
 
 static func sell(g: Dictionary, picked: Array, flowers: Array=[], wrap: int=0) -> bool:
@@ -310,3 +322,27 @@ static func claim_story(g: Dictionary, id: int) -> bool:
 	if not story_ready(g, id): return false
 	g.farm.story_seen.append(id)
 	return true
+
+static func cultivate(g: Dictionary,slot: int) -> bool:
+	ensure(g)
+	var bed: Variant=g.farm.beds.get(str(slot))
+	if not bed is Dictionary or bed.cultivated or int(bed.growth)>=3 or int(g.coins)<5: return false
+	g.coins-=5; bed.cultivated=true; return true
+
+static func companion_bonus(g: Dictionary,slot: int) -> int:
+	var bed: Variant=g.farm.beds.get(str(slot))
+	if not bed is Dictionary: return 0
+	# Beds share a row; planning complementary varieties grants an extra cut flower.
+	var neighbor: Variant=g.farm.beds.get(str(slot ^ 1))
+	return 1 if neighbor is Dictionary and int(neighbor.species)!=int(bed.species) else 0
+
+static func finish_bouquet(g: Dictionary,kind: String) -> bool:
+	ensure(g)
+	if g.farm.draft.flowers.is_empty(): return false
+	if kind=="trim":
+		if g.farm.draft.trimmed or g.farm.draft.wrapped: return false
+		g.farm.draft.trimmed=true; return true
+	if kind=="ribbon":
+		if not g.farm.draft.wrapped or g.farm.draft.tied: return false
+		g.farm.draft.tied=true; return true
+	return false

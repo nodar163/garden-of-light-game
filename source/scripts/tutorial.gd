@@ -1,6 +1,6 @@
 extends RefCounted
 ## Short, replayable guides for the three places a new player meets.
-const KEYS=["garden","light","match","nursery","shop","journal","upgrades","album","settings","levels","story","backup"]
+const KEYS=["garden","light","match","nursery","shop","journal","upgrades","album","settings","levels","story","backup","house","estate","florist_craft","nursery_care"]
 var demo: Control
 var host: Control
 var layer: CanvasLayer
@@ -35,24 +35,29 @@ func open(key: String) -> void:
 	var margin:=MarginContainer.new(); margin.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
 	for side in ["left","right","top","bottom"]: margin.add_theme_constant_override("margin_"+side,20)
 	margin.mouse_filter=Control.MOUSE_FILTER_IGNORE; layer.add_child(margin)
-	var center:=CenterContainer.new(); center.mouse_filter=Control.MOUSE_FILTER_IGNORE; margin.add_child(center)
-	var panel:=PanelContainer.new(); panel.custom_minimum_size.x=minf(420,host.size.x-40)
+	var center:=VBoxContainer.new(); center.mouse_filter=Control.MOUSE_FILTER_IGNORE; margin.add_child(center)
+	var panel:=PanelContainer.new(); panel.size_flags_vertical=Control.SIZE_EXPAND_FILL
 	var style: StyleBoxFlat=host.style(Color("fff9ea"),Color("d4bc87")); style.set_corner_radius_all(26)
 	panel.add_theme_stylebox_override("panel",style); center.add_child(panel)
-	var box:=VBoxContainer.new(); box.add_theme_constant_override("separation",10); panel.add_child(box)
-	var portrait:=TextureRect.new(); portrait.texture=preload("res://assets/jack.png"); portrait.custom_minimum_size=Vector2(64,76); portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; box.add_child(portrait)
+	var layout:=VBoxContainer.new(); panel.add_child(layout)
+	var scroll:=ScrollContainer.new(); scroll.size_flags_vertical=Control.SIZE_EXPAND_FILL; scroll.horizontal_scroll_mode=ScrollContainer.SCROLL_MODE_DISABLED; layout.add_child(scroll)
+	var box:=VBoxContainer.new(); box.size_flags_horizontal=Control.SIZE_EXPAND_FILL; box.add_theme_constant_override("separation",16); scroll.add_child(box)
+	var portrait:=TextureRect.new(); portrait.texture=preload("res://assets/jack.png"); portrait.custom_minimum_size=Vector2(120,144); portrait.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; portrait.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; box.add_child(portrait)
 	counter=Label.new(); counter.add_theme_font_size_override("font_size",18)
 	counter.add_theme_color_override("font_color",Color("64896f")); box.add_child(counter)
 	heading=Label.new(); heading.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	heading.add_theme_font_size_override("font_size",25); heading.add_theme_color_override("font_color",Color("204f43")); box.add_child(heading)
+	heading.add_theme_font_size_override("font_size",34); heading.add_theme_color_override("font_color",Color("204f43")); box.add_child(heading)
 	body=Label.new(); body.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART
-	body.add_theme_font_size_override("font_size",20); body.add_theme_color_override("font_color",Color("36554a")); box.add_child(body)
+	body.add_theme_font_size_override("font_size",28); body.add_theme_color_override("font_color",Color("36554a")); box.add_child(body)
 	demo=preload("res://scripts/tutorial_demo.gd").new(); demo.english=host.store.data.settings.language=="en"; demo.reduced=host.store.data.settings.reduce_motion; box.add_child(demo)
-	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",10); box.add_child(row)
+	if key in ["house","estate"]:
+		var overview:=TextureRect.new(); overview.texture=load("res://assets/"+("house" if key=="house" else "estate")+"-abandoned.png"); overview.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; overview.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; overview.custom_minimum_size.y=300; box.add_child(overview)
+	var breathing:=Control.new(); breathing.size_flags_vertical=Control.SIZE_EXPAND_FILL; box.add_child(breathing)
+	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",10); layout.add_child(row)
 	var skip: Button=host.button(words("Пропустить","Skip"),finish,row)
-	skip.add_theme_font_size_override("font_size",20)
+	skip.add_theme_font_size_override("font_size",28)
 	next_button=host.button("",advance,row,true)
-	next_button.add_theme_font_size_override("font_size",20)
+	next_button.add_theme_font_size_override("font_size",28)
 	for state in ["font_color","font_hover_color","font_pressed_color","font_focus_color"]:
 		next_button.add_theme_color_override(state,Color("234c3d"))
 	show_step(); next_button.grab_focus()
@@ -67,11 +72,16 @@ func content() -> Array:
 			["Цветы на стол","Flowers on the table","Я Джек. На витрине лежит твой урожай. Перенеси на стол до трёх цветков. Над покупателем написано, что ему нравится.","I'm Jack. Your harvest is on the display. Move up to three flowers onto the table. The customer's favourite quality is shown above them."],
 			["Завернём букет","Wrap the bouquet","Справа от стола три рулона бумаги. Перенеси выбранный рулон на цветы. Чтобы вернуть отдельный цветок, перенеси его со стола на витрину.","Three paper rolls sit to the right. Move one onto the flowers. To return a loose flower, move it from the table back to the display."],
 			["Первый покупатель","Your first customer","Перенеси готовый букет к кассе или первому покупателю. Получишь монеты; следующий подойдёт сам. Если цветы закончились — вернись в огород.","Move the wrapped bouquet to checkout or the first customer. You'll earn coins and the queue will advance. Grow more in the nursery when stock runs out."]]
+		pages.append(["Мастерство садовника","Gardening craft","Компост стоит 5 монет и даёт +1 цветок за урожай. Перенеси мешок на растущую грядку. Разные сорта в соседних грядках одной пары дают ещё +1 цветок.","Compost costs 5 coins and adds one flower per harvest. Move the sack onto a growing bed. Different varieties in a neighbouring pair of beds add another flower."] if section=="nursery" else ["Букет ручной работы","A handcrafted bouquet","Перенеси секатор на цветы до упаковки: +8 монет. Выбери бумагу, которую просит покупатель: +6. После бумаги перенеси бант на букет: ещё +8. Эти шаги необязательны.","Move the shears onto loose flowers before wrapping: +8 coins. Choose the customer’s preferred paper: +6. Add a bow after wrapping: another +8. These steps are optional."])
 		var result: Array=[]
 		for page in pages: result.append([words(page[0],page[1]),words(page[2],page[3])])
 		return result
 	if section not in ["garden","light","match"]:
 		var tips: Dictionary={
+			"florist_craft":["Букет с характером","A bouquet with character","Секатором подрежь стебли до упаковки: +8 монет. Над очередью показан любимый цвет бумаги покупателя: за него +6. Заверни букет и добавь бант: ещё +8. Перетаскивай инструменты на стол или используй два касания. Можно продавать и без этих шагов.","Trim loose stems with the shears: +8 coins. Match the customer’s preferred paper shown above the queue: +6. Wrap, then add a bow: another +8. Drag each tool to the table or use two taps. You can still sell without these extra steps."],
+			"nursery_care":["Цветы любят заботу","Flowers love care","Мешок компоста между лейкой и корзиной стоит 5 монет. Перенеси его на растущую грядку: при сборе получишь +1 цветок. Один раз за урожай. Разные сорта на соседних грядках одной пары дают ещё +1. Полив и победы помогают росту; урожай не засыхает.","Move the compost sack between the watering can and basket onto a growing bed. It costs 5 coins and gives +1 flower at harvest, once per crop. Different varieties in a neighbouring pair give another +1. Watering and wins help growth; crops never wither."],
+			"house":["Вернём дому тепло","Make this house a home","Здесь шесть комнат. Проведи пальцем, чтобы осмотреть дом. Приблизь карту кнопкой + и коснись отметки на предмете. У каждого три этапа: уборка, ремонт, украшение. Карточка покажет цену и нужное число первых побед.","Explore six rooms by dragging the map. Zoom with + and tap an object marker. Each has three stages: tidy, restore and decorate. Its card shows the price and required first wins."],
+			"estate":["Сад за воротами","Beyond the garden gate","Это большая усадьба: шесть новых районов и 72 этапа улучшений. Коснись здания, чтобы войти в дом, магазин или огород. Первые победы открывают ремонты; последняя ступень требует все 1000 уровней в каждом режиме. Ничего не исчезнет, если ты отдохнёшь.","Explore six new districts and 72 upgrade stages. Tap a building to enter the house, shop or nursery. First wins unlock repairs; the final stage requires all 1000 levels in both modes. Nothing disappears while you take a break."],
 			"journal":["История и цель","Story and goal","Здесь я показываю ближайшую задачу. Выполни условие и нажми «Продолжить историю». Заказы друзей — подарки из декоративного сада; урожай продаётся отдельно в магазине.","I show your next goal here. Meet its condition and continue the story. Friends' gifts use decorative garden varieties; harvest is sold separately in the shop."],
 			"upgrades":["Развиваем лавку","Grow the shop","На карточке показаны цена и нужное число продаж. Улучшения увеличивают доход. Если кнопка недоступна, сначала выполни указанное условие.","Each card shows its price and required sales. Upgrades increase income. If a button is disabled, meet the listed condition first."],
 			"album":["Наши букеты","Our bouquets","Здесь хранятся последние 12 проданных букетов. Пока альбом пуст, вырасти цветы и обслужи первого покупателя.","Your last 12 sold bouquets appear here. If the album is empty, grow flowers and serve your first customer."],

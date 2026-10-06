@@ -13,9 +13,10 @@ func check(condition: bool, message: String) -> void:
 func _initialize() -> void:
 	var fingerprints: Dictionary = {}
 	var previous_score := 0
-	for id in range(1, 251):
+	for id in range(1, 1001):
 		var data: Dictionary = JSON.parse_string(FileAccess.get_file_as_string("res://levels/%02d.json" % id))
 		check(Rules.validate(data) == "", "level schema %d" % id)
+		if id==251: previous_score=0
 		if id >= 51:
 			var fingerprint := JSON.stringify([data.cells, data.start])
 			check(not fingerprints.has(fingerprint), "unique new board %d" % id)

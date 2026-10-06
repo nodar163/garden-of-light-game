@@ -2,6 +2,7 @@ extends RefCounted
 ## All economy operations are deterministic, local and independent of the view.
 const Story=preload("res://scripts/garden_story.gd")
 const Farm=preload("res://scripts/garden_farm.gd")
+const Estate=preload("res://scripts/estate_rules.gd")
 const REWARD=25
 const PLOT_COUNT=30
 const ITEMS=[
@@ -34,6 +35,7 @@ static func valid(g: Variant) -> bool:
 	if not g is Dictionary or g.get("version")!=1: return false
 	for key in ["coins","orders","intro_step"]:
 		if not typeof(g.get(key)) in [TYPE_INT,TYPE_FLOAT] or float(g[key])!=int(g[key]) or int(g[key])<0: return false
+	if g.has("estate") and not Estate.valid(g.estate): return false
 	if g.has("story") and not Story.valid(g.story): return false
 	if g.has("farm") and not Farm.valid(g.farm): return false
 	if g.has("prologue_step"):
@@ -53,7 +55,7 @@ static func valid(g: Variant) -> bool:
 	for key in g.earned:
 		if not key is String or seen.has(key): return false
 		var parts=key.split(":")
-		if parts.size()!=2 or parts[0] not in ["light","match"] or not parts[1].is_valid_int() or int(parts[1])<1 or int(parts[1])>250: return false
+		if parts.size()!=2 or parts[0] not in ["light","match"] or not parts[1].is_valid_int() or int(parts[1])<1 or int(parts[1])>1000 or str(int(parts[1]))!=parts[1]: return false
 		seen[key]=true
 	seen.clear()
 	for value in g.repairs:
@@ -76,7 +78,7 @@ static func sync(data: Dictionary) -> int:
 		var ids: Array=data.completed if mode=="light" else data.match3.completed
 		for id in ids:
 			var key: String=mode+":"+str(int(id))
-			if int(id)>=1 and int(id)<=250 and key not in g.earned:
+			if int(id)>=1 and int(id)<=1000 and key not in g.earned:
 				g.earned.append(key); earned+=REWARD
 	g.coins+=earned
 	return earned

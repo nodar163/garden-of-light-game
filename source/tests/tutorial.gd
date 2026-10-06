@@ -17,13 +17,13 @@ func run() -> void:
 	var old: Dictionary=game.store.data.duplicate(true); old.erase("tutorial_seen")
 	check(Saves.valid(old),"old save without tutorial flags stays valid")
 	old.tutorial_seen=["wrong"]; check(not Saves.valid(old),"unknown tutorial key rejected")
-	game.garden_ui.open_garden(); await process_frame
+	game.garden_ui.show(); await process_frame
 	check(game.tutorial.section=="garden" and is_instance_valid(game.tutorial.layer),"first garden visit opens guide")
 	check(game.tutorial.heading.text.length()>0 and game.tutorial.body.text.length()>0,"garden guide explains action")
 	await RenderingServer.frame_post_draw; root.get_texture().get_image().save_png("res://artifacts/tutorial-first-garden.png")
 	game.tutorial.advance(); game.tutorial.advance(); game.tutorial.advance(); await process_frame
 	check(Guide.seen(game.store.data,"garden"),"garden guide is saved after final step")
-	game.garden_ui.open_garden(); await process_frame
+	game.garden_ui.show(); await process_frame
 	check(not is_instance_valid(game.tutorial.layer),"garden guide does not repeat")
 	await RenderingServer.frame_post_draw; root.get_texture().get_image().save_png("res://artifacts/tutorial-garden-menu.png")
 	game.open_level(1); await process_frame

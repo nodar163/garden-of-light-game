@@ -19,7 +19,7 @@ static func valid(value: Variant) -> bool:
 	if value.has("tutorial_seen"):
 		if not value.tutorial_seen is Array: return false
 		for key in value.tutorial_seen:
-			if key not in ["garden","light","match","nursery","shop","journal","upgrades","album","settings","levels","story","backup"]: return false
+			if key not in ["garden","light","match","nursery","shop","journal","upgrades","album","settings","levels","story","backup","house","estate","florist_craft","nursery_care"]: return false
 	if not value.get("completed") is Array or not value.get("boards") is Dictionary or not value.get("settings") is Dictionary:
 		return false
 	if not typeof(value.get("current")) in [TYPE_INT, TYPE_FLOAT] or float(value.current) != int(value.current) or int(value.current) < 1:
@@ -41,9 +41,9 @@ static func valid(value: Variant) -> bool:
 	if value.has("match3"):
 		var extra: Variant = value.match3
 		if not extra is Dictionary or not extra.get("completed") is Array or not extra.get("boards") is Dictionary: return false
-		if not typeof(extra.get("current")) in [TYPE_INT,TYPE_FLOAT] or int(extra.current) < 1 or int(extra.current) > 250: return false
+		if not typeof(extra.get("current")) in [TYPE_INT,TYPE_FLOAT] or int(extra.current) < 1 or int(extra.current) > 1000: return false
 		for id in extra.completed:
-			if not typeof(id) in [TYPE_INT,TYPE_FLOAT] or float(id) != int(id) or int(id) < 1 or int(id) > 250: return false
+			if not typeof(id) in [TYPE_INT,TYPE_FLOAT] or float(id) != int(id) or int(id) < 1 or int(id) > 1000: return false
 		for board in extra.boards.values():
 			if not board is Dictionary: return false
 	return true

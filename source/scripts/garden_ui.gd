@@ -17,11 +17,13 @@ var category:=0
 var message:=""
 var replay:=false
 var business: RefCounted
+var estate: RefCounted
 var journal_view: RefCounted
 
 func _init(host: Control) -> void:
 	game=host
 	business=Business.new(self)
+	estate=preload("res://scripts/estate_ui.gd").new(self)
 func words(ru: String,en: String) -> String: return game.words(ru,en)
 func english() -> bool: return game.store.data.settings.language=="en"
 func g() -> Dictionary: return game.store.data.garden
@@ -53,6 +55,8 @@ func home() -> void:
 	hud=HUD.new(game,"home"); map_view=hud.map
 	map_view.nursery_selected.connect(business.nursery)
 	map_view.shop_selected.connect(business.shop)
+	map_view.house_selected.connect(func(): estate.enter("house"))
+	map_view.estate_selected.connect(func(): estate.open(false))
 	map_view.cat_selected.connect(func(): message=words("Джек: Это Персик. Любит тёплые дорожки и смотреть, как растут цветы.","Jack: This is Peaches. He loves warm paths and watching the flowers grow."); slot=-1; repair_index=-1; show())
 	map_view.place_selected.connect(select_place)
 	var row:=HBoxContainer.new(); row.add_theme_constant_override("separation",16); hud.content.add_child(row)
@@ -61,7 +65,7 @@ func home() -> void:
 	HUD.text(copy,words("ДЖЕК · НАША СЛЕДУЮЩАЯ ЦЕЛЬ","JACK · OUR NEXT TASK"),18,HUD.SOFT)
 	HUD.text(copy,task_title(),28)
 	HUD.text(copy,task_detail(),20,HUD.SOFT)
-	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 500; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
+	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 2000; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
 	game.button(words("К следующему шагу  ›","Take the next step  ›"),run_goal,hud.content,true)
@@ -103,6 +107,16 @@ func next_goal() -> Dictionary:
 		return {"action":"repair","id":id,"title":title_of(item),"detail":words("Всё готово! Верни этому месту жизнь.","Everything is ready! Bring this place back to life.")}
 	if int(g().farm.orders_done)==0: return {"action":"play","title":words("Вырастим первый букет","Grow our first bouquet"),"detail":words("Победы растят цветы — повторные тоже.","Wins grow flowers, including replayed levels.")}
 	if Farm.story_ready(g(),Farm.next_story(g())): return {"action":"story","title":words("Джек и Лилия · новая глава","Jack and Lily · a new chapter"),"detail":words("Загляни в историю после проделанной работы.","See the next story after all your work.")}
+	var best_need:=2001; var best_id:=-1; var inside:=false
+	for home_space in [true,false]:
+		for id in 24:
+			var tier_value: int=Rules.Estate.tier(g(),home_space,id)
+			if tier_value>=3: continue
+			var need: int=Rules.Estate.required(home_space,id,tier_value+1)
+			if need<best_need: best_need=need; best_id=id; inside=home_space
+	if best_id>=0:
+		var price: int=Rules.Estate.price(Rules.Estate.tier(g(),inside,best_id)+1)
+		return {"action":"estate" if g().earned.size()>=best_need and int(g().coins)>=price else "play","id":best_id,"inside":inside,"title":Rules.Estate.name_of(inside,best_id,english()),"detail":words("Дом и усадьба: победы %d/%d · ремонт %d монет.","Home and estate: first wins %d/%d · repair %d coins.") % [g().earned.size(),best_need,price]}
 	return {"action":"journal","title":words("Сад, который создали мы","A garden we made together"),"detail":words("Открывай новые истории, сорта и украшения.","Discover new stories, flowers and decorations.")}
 
 func task_title() -> String: return next_goal().title
@@ -111,7 +125,12 @@ func run_goal() -> void:
 	var goal:=next_goal()
 	match goal.action:
 		"plant": open_shop()
-		"play": game.open_level(game.unlocked()) if g().story.last_mode=="light" else game.open_match(game.match_unlocked())
+		"play":
+			var light: bool=g().story.last_mode=="light"
+			if game.store.data.completed.size()==1000: light=false
+			elif game.store.data.match3.completed.size()==1000: light=true
+			game.open_level(game.unlocked()) if light else game.open_match(game.match_unlocked())
+		"estate": estate.house=goal.inside; estate.details(goal.id)
 		"nursery": find_nursery()
 		"shop":
 			move_source=-1; slot=-1; repair_index=-1; pending=-1
@@ -132,7 +151,7 @@ func open_shop() -> void:
 	slot=Rules.next_empty(g()); pending=-1; repair_index=-1; shop()
 
 func open_garden() -> void:
-	move_source=-1; slot=-1; repair_index=-1; pending=-1; message=""; show()
+	move_source=-1; slot=-1; repair_index=-1; pending=-1; message=""; estate.open(false)
 
 func modes() -> void:
 	move_source=-1
@@ -149,7 +168,7 @@ func modes() -> void:
 		var copy:=VBoxContainer.new(); copy.size_flags_horizontal=Control.SIZE_EXPAND_FILL; row.add_child(copy)
 		HUD.text(copy,title,29)
 		HUD.text(copy,words("Меняй цветы, собирай три в ряд.","Swap flowers and match three.") if match_mode else words("Поворачивай дорожки к цветам.","Turn paths towards flowers."),20,HUD.SOFT)
-		HUD.text(copy,words("Пройдено: %d / 250","Completed: %d / 250") % done,19,HUD.SOFT)
+		HUD.text(copy,words("Пройдено: %d / 1000","Completed: %d / 1000") % done,19,HUD.SOFT)
 		var buttons:=HBoxContainer.new(); hud.content.add_child(buttons)
 		var play: Callable=func(): game.open_match(game.match_unlocked())
 		var levels: Callable=game.show_match_levels
@@ -176,6 +195,8 @@ func show() -> void:
 	hud=HUD.new(game,"garden"); map_view=hud.map
 	map_view.nursery_selected.connect(business.nursery)
 	map_view.shop_selected.connect(business.shop)
+	map_view.house_selected.connect(func(): estate.enter("house"))
+	map_view.estate_selected.connect(func(): estate.open(false))
 	map_view.selected=slot; map_view.preview_item=pending
 	map_view.cat_selected.connect(func(): message=words("Джек: Это Персик. Любит тёплые дорожки и смотреть, как растут цветы.","Jack: This is Peaches. He loves warm paths and watching the flowers grow."); slot=-1; repair_index=-1; show())
 	map_view.place_selected.connect(select_place); map_view.view_changed.connect(save_view)

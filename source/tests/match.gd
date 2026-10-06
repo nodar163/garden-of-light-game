@@ -10,7 +10,7 @@ func check(value: bool, message: String) -> void:
 
 func _initialize() -> void:
 	var levels: Array = JSON.parse_string(FileAccess.get_file_as_string("res://match_levels/levels.json"))
-	check(levels.size()==250,"exactly 250 match levels")
+	check(levels.size()==1000,"exactly 1000 match levels")
 	var seen := {}
 	for data in levels:
 		var p=Rules.new()

@@ -40,7 +40,7 @@ func _initialize() -> void:
 	check(Farm.plant(fresh, 1, 1), "new species can be planted")
 	check(Farm.upgrade(fresh, 0), "bed upgrade buys extra harvest")
 	for i in 3: Farm.grow(fresh)
-	check(Farm.harvest(fresh, 0) == 3, "upgraded bed produces three stems")
+	check(Farm.harvest(fresh, 0) == 4, "upgraded bed plus different neighboring variety produces four stems")
 	check(Farm.story_ready({"repairs": [0, 1], "farm": Farm.defaults()}, 0), "Lily arrives after gate repair")
 	var early: Dictionary = Garden.defaults()
 	early.earned = ["light:1", "match:1", "light:2"]

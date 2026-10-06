@@ -32,7 +32,7 @@ var match_hint_button: Button
 var match_restart_button: Button
 var tool_buttons: Array=[]
 var starter_button: Button
-const LEVEL_COUNT := 250
+const LEVEL_COUNT := 1000
 const REGION_RU = ["Первые лучи", "Розовый рассвет", "Лавандовый склон", "Бирюзовый ручей", "Янтарная долина", "Сапфировый вечер", "Коралловая роща", "Серебряная луна", "Северное сияние", "Сад тысячи звёзд"]
 const REGION_EN = ["First light", "Rose dawn", "Lavender hillside", "Turquoise stream", "Amber valley", "Sapphire evening", "Coral grove", "Silver moon", "Northern lights", "Garden of stars"]
 var level_group := -1
@@ -64,6 +64,8 @@ func _exit_tree() -> void:
 	if garden_ui!=null:
 		if garden_ui.journal_view!=null: garden_ui.journal_view.ui=null; garden_ui.journal_view.game=null
 		garden_ui.journal_view=null
+		if garden_ui.estate!=null: garden_ui.estate.ui=null; garden_ui.estate.game=null; garden_ui.estate.map=null
+		garden_ui.estate=null
 		if garden_ui.business!=null: garden_ui.business.garden_ui=null
 		garden_ui.business=null; garden_ui.hud=null; garden_ui=null
 
@@ -74,7 +76,7 @@ func _ready() -> void:
 	store.load_data()
 	get_window().title=words("Сад Джека","Jack's Garden")
 	var match_data: Variant = JSON.parse_string(FileAccess.get_file_as_string("res://match_levels/levels.json"))
-	if match_data is Array and match_data.size() == 250:
+	if match_data is Array and match_data.size() == 1000:
 		match_levels = match_data
 	else:
 		error_message = "Flower Cascade levels could not be loaded"
@@ -236,12 +238,12 @@ func show_levels() -> void:
 	label(words("Каждый новый уровень — 25 монет для сада.", "Every new level earns 25 garden coins."), 23, MUTED)
 	if level_group < 0:
 		level_group = (int(store.data.current)-1)/25
-	label(words(REGION_RU[level_group], REGION_EN[level_group]), 28)
+	label(words(REGION_RU[(level_group)%10], REGION_EN[(level_group)%10]), 28)
 	var navigation := HBoxContainer.new()
 	root_box.add_child(navigation)
 	button("‹", select_group.bind(-1), navigation).disabled = level_group == 0
 	button("%d–%d / %d" % [level_group*25+1, (level_group+1)*25, LEVEL_COUNT], func(): pass, navigation).mouse_filter = Control.MOUSE_FILTER_IGNORE
-	button("›", select_group.bind(1), navigation).disabled = level_group == 9
+	button("›", select_group.bind(1), navigation).disabled = level_group == 39
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_child(scroll)
@@ -264,7 +266,7 @@ func show_levels() -> void:
 	tutorial.maybe_open("levels")
 
 func select_group(direction: int) -> void:
-	level_group = clampi(level_group + direction, 0, 9)
+	level_group = clampi(level_group + direction, 0, 39)
 	show_levels()
 
 func open_level(id: int) -> void:
@@ -280,13 +282,13 @@ func open_level(id: int) -> void:
 	clear_page("play")
 	header(words("ПОЛЯНКА ", "CLEARING ") + "%02d / %d" % [id, LEVEL_COUNT])
 	var chapter := (id - 1) / 25
-	label(words(REGION_RU[chapter], REGION_EN[chapter]), 34)
+	label(words(REGION_RU[(chapter)%10], REGION_EN[(chapter)%10]), 34)
 	var lessons_ru := ["Коснитесь дорожки, чтобы повернуть её к цветку.", "Свет проходит только по соединённым дорожкам.", "Осветите каждый цветок. Спешить некуда."]
 	var lessons_en := ["Tap a path to turn it towards the flower.", "Light travels only through connected paths.", "Light every flower. Take your time."]
 	label(words(lessons_ru[id-1], lessons_en[id-1]) if id <= 3 else words("Поворачивайте дорожки и соединяйте свет с цветами.", "Turn the paths to bring light to the flowers."), 23, MUTED)
 	board = Board.new()
 	board.puzzle = puzzle
-	board.region = chapter
+	board.region = chapter%10
 	board.reduced = store.data.settings.reduce_motion
 	board.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	board.custom_minimum_size.y = 360
@@ -448,9 +450,9 @@ func _notification(what: int) -> void:
 
 func match_unlocked() -> int:
 	var result := 1
-	for id in range(1,251):
+	for id in range(1,1001):
 		if id not in store.data.match3.completed: break
-		result = mini(id+1,250)
+		result = mini(id+1,1000)
 	return result
 
 func show_match_levels() -> void:
@@ -463,9 +465,9 @@ func show_match_levels() -> void:
 	var nav := HBoxContainer.new()
 	root_box.add_child(nav)
 	button("‹", match_page.bind(-1),nav).disabled = match_group == 0
-	button("%d–%d / 250" % [match_group*25+1,(match_group+1)*25],func(): pass,nav).mouse_filter=Control.MOUSE_FILTER_IGNORE
-	button("›", match_page.bind(1),nav).disabled = match_group == 9
-	label(words(REGION_RU[match_group],REGION_EN[match_group]),26)
+	button("%d–%d / 1000" % [match_group*25+1,(match_group+1)*25],func(): pass,nav).mouse_filter=Control.MOUSE_FILTER_IGNORE
+	button("›", match_page.bind(1),nav).disabled = match_group == 39
+	label(words(REGION_RU[(match_group)%10],REGION_EN[(match_group)%10]),26)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	root_box.add_child(scroll)
@@ -477,12 +479,12 @@ func show_match_levels() -> void:
 		var text_value := str(id)+(" +" if id in store.data.match3.completed else "")
 		var item := button(text_value,open_match.bind(id),grid)
 		item.custom_minimum_size.y=88; item.disabled=id>match_unlocked()
-	label(words("Букетов собрано: ", "Bouquets completed: ")+"%d / 250" % store.data.match3.completed.size(),22,MUTED)
+	label(words("Букетов собрано: ", "Bouquets completed: ")+"%d / 1000" % store.data.match3.completed.size(),22,MUTED)
 	button(words("Как играть и усилители", "How to play and power-ups"),show_match_help)
 	tutorial.maybe_open("levels")
 
 func match_page(direction: int) -> void:
-	match_group=clampi(match_group+direction,0,9)
+	match_group=clampi(match_group+direction,0,39)
 	show_match_levels()
 
 func show_match_help() -> void:
@@ -509,8 +511,8 @@ func open_match(id: int) -> void:
 	match_model.setup(match_levels[id-1],store.data.match3.boards.get(str(id),{}))
 	match_session_won=match_model.won()
 	clear_page("match")
-	header(words("КАСКАД ", "CASCADE ")+"%d / 250" % id)
-	label(words(REGION_RU[(id-1)/25],REGION_EN[(id-1)/25]),32)
+	header(words("КАСКАД ", "CASCADE ")+"%d / 1000" % id)
+	label(words(REGION_RU[((id-1)/25)%10],REGION_EN[((id-1)/25)%10]),32)
 	match_goals=MatchGoals.new()
 	match_goals.model=match_model
 	match_goals.custom_minimum_size.y=82
@@ -568,7 +570,7 @@ func refresh_match() -> void:
 	match_next.visible=victory
 	match_garden_button.visible=victory
 	match_garden_button.text=words("Улучшить сад · ","Improve garden · ")+str(store.data.garden.coins)+words(" монет"," coins")
-	match_next.text=words("Все букеты собраны!", "All bouquets complete!") if int(match_model.level.id)==250 else words("Следующий букет  ›", "Next bouquet  ›")
+	match_next.text=words("Все букеты собраны!", "All bouquets complete!") if int(match_model.level.id)==1000 else words("Следующий букет  ›", "Next bouquet  ›")
 	match_hint_button.disabled=match_view.busy or victory or match_model.moves<=0
 	match_restart_button.disabled=match_view.busy
 	if victory: match_message.text=words("Прекрасный букет!", "A lovely bouquet!")+(words(" +25 садовых монет."," +25 garden coins.") if match_rewarded else words(" Награда уже получена."," Reward already collected."))
@@ -621,7 +623,7 @@ func match_rest() -> void:
 
 func advance_match() -> void:
 	var id: int=int(match_model.level.id)
-	if id<250: open_match(id+1)
+	if id<1000: open_match(id+1)
 	else: show_match_levels()
 
 func select_match_tool(kind: int) -> void:
