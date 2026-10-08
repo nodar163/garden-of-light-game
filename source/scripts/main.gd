@@ -237,6 +237,10 @@ func unlocked() -> int:
 	return highest
 
 func show_levels() -> void:
+	if ads!=null: ads.transition(show_levels_now)
+	else: show_levels_now()
+
+func show_levels_now() -> void:
 	clear_page("levels")
 	header(words("Полянки", "Clearings"))
 	label(words("Путешествие по саду", "A garden journey"), 40)
@@ -471,6 +475,10 @@ func match_unlocked() -> int:
 	return result
 
 func show_match_levels() -> void:
+	if ads!=null: ads.transition(show_match_levels_now)
+	else: show_match_levels_now()
+
+func show_match_levels_now() -> void:
 	clear_page("match_levels")
 	header(words("Цветочный каскад", "Flower Cascade"))
 	label(words("Соберите свой букет", "Gather a bouquet"),36)

@@ -82,7 +82,7 @@ func open_menu() -> void:
 			var mode: String="light" if game.page=="play" else "match"
 			var id: int=int(game.puzzle.level.id) if mode=="light" else int(game.match_model.level.id)
 			var done: Array=game.store.data.completed if mode=="light" else game.store.data.match3.completed
-			if id not in done and not Rules.skipped(game.store.data,mode,id): game.button(game.words("Реклама · пропустить уровень","Ad · skip this level"),confirm_skip,box)
+			if id<1000 and id not in done and not Rules.skipped(game.store.data,mode,id): game.button(game.words("Реклама · пропустить уровень","Ad · skip this level"),confirm_skip,box)
 	var copy:=Label.new(); copy.autowrap_mode=TextServer.AUTOWRAP_WORD_SMART; copy.add_theme_font_size_override("font_size",24); copy.text=game.words("Пропуск открывает следующий уровень, но не даёт 25 монет и не считается победой. Вернуться к уровню можно всегда.","Skipping unlocks the next level without 25 coins or a win. You can return to it anytime."); box.add_child(copy)
 	game.button(game.words("Вернуться в игру","Return to game"),close,box)
 func confirm_skip() -> void:
