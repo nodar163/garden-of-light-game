@@ -15,7 +15,8 @@ var language_set:=false
 var pending_error:=""
 func _ready() -> void:
 	process_mode=Node.PROCESS_MODE_ALWAYS
-	if OS.has_feature("web"): bridge=JavaScriptBridge.get_interface("JackPlatform")
+	if OS.has_feature("web") and JavaScriptBridge.eval("typeof window.JackPlatform !== 'undefined'",true):
+		bridge=JavaScriptBridge.get_interface("JackPlatform")
 	if bridge==null: set_process(false); return
 	var config: Variant=JSON.parse_string(str(bridge.config()))
 	enabled=config is Dictionary and config.get("enabled",false)
