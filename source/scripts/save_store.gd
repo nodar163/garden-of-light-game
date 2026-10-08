@@ -15,6 +15,8 @@ static func defaults() -> Dictionary:
 static func valid(value: Variant) -> bool:
 	if not value is Dictionary or value.get("version") != 1:
 		return false
+	if value.has("ad_state") and not preload("res://scripts/ad_rules.gd").valid(value.ad_state): return false
+	if value.has("platform_language_set") and not value.platform_language_set is bool: return false
 	if value.has("garden") and not Garden.valid(value.garden): return false
 	if value.has("tutorial_seen"):
 		if not value.tutorial_seen is Array: return false

@@ -11,6 +11,7 @@ const GardenMap=preload("res://scripts/garden_map.gd")
 const GardenUI=preload("res://scripts/garden_ui.gd")
 const Farm=preload("res://scripts/garden_farm.gd")
 const Tutorial=preload("res://scripts/tutorial.gd")
+var ads: Node
 var garden_ui: RefCounted
 var tutorial: RefCounted
 var light_rewarded:=false
@@ -98,6 +99,7 @@ func _ready() -> void:
 	sound = Sound.new()
 	add_child(sound)
 	sound.configure(store.data.settings)
+	ads=preload("res://scripts/platform_ads.gd").new(); ads.game=self; add_child(ads)
 	garden_ui=GardenUI.new(self)
 	tutorial=Tutorial.new(self)
 	get_tree().auto_accept_quit = false
@@ -223,12 +225,13 @@ func garden_view(height: int) -> void:
 	root_box.add_child(art)
 
 func show_home() -> void:
-	garden_ui.home()
+	if ads!=null: ads.transition(func(): garden_ui.home())
+	else: garden_ui.home()
 
 func unlocked() -> int:
 	var highest := 1
 	for id in range(1, levels.size()+1):
-		if id not in store.data.completed:
+		if id not in store.data.completed and not preload("res://scripts/ad_rules.gd").skipped(store.data,"light",id):
 			break
 		highest = mini(id+1, levels.size())
 	return highest
@@ -259,6 +262,7 @@ func show_levels() -> void:
 		var text_value := "%02d" % id
 		if id in store.data.completed:
 			text_value += "  +"
+		elif preload("res://scripts/ad_rules.gd").skipped(store.data,"light",id): text_value += words(" П"," S")
 		elif id > unlocked():
 			text_value += "  ·"
 		var item := button(text_value, open_level.bind(id), grid)
@@ -304,6 +308,7 @@ func open_level(id: int) -> void:
 	undo_button = button(words("Отмена", "Undo"), undo, row)
 	button(words("Заново", "Restart"), restart, row)
 	hint_button = button(words("Подсказка", "Hint"), hint, row)
+	if ads.enabled: button(words("Помощь · реклама","Help · ads"),ads.open_menu)
 	next_button = button("", advance, null, true)
 	reward_garden_button=button(words("Улучшить сад", "Improve the garden"),show_garden)
 	notice = label("", 18, MUTED)
@@ -345,7 +350,9 @@ func refresh() -> void:
 	var victory: bool = puzzle.won()
 	var id: int = int(puzzle.level.id)
 	if victory:
-		if store.complete(id): light_rewarded=true
+		if store.complete(id):
+			light_rewarded=true
+			if ads!=null: ads.record("light",id)
 		if not light_session_won:
 			Farm.grow(store.data.garden)
 			light_session_won=true
@@ -367,6 +374,9 @@ func refresh() -> void:
 	notice.text = words("Один возможный путь. Нажмите «Применить».", "One possible solution. Tap Apply.") if selected_hint >= 0 else words("Без таймера. В вашем темпе.", "No timer. At your own pace.")
 
 func advance() -> void:
+	ads.transition(advance_now)
+
+func advance_now() -> void:
 	var id: int = int(puzzle.level.id)
 	if id < levels.size():
 		open_level(id+1)
@@ -382,6 +392,9 @@ func persist() -> void:
 			notice.text = words("Не удалось сохранить прогресс. Проверьте свободное место.", "Could not save. Please check free storage.")
 
 func show_garden() -> void:
+	ads.transition(show_garden_now)
+
+func show_garden_now() -> void:
 	garden_ui.open_garden()
 
 func show_settings() -> void:
@@ -453,7 +466,7 @@ func _notification(what: int) -> void:
 func match_unlocked() -> int:
 	var result := 1
 	for id in range(1,1001):
-		if id not in store.data.match3.completed: break
+		if id not in store.data.match3.completed and not preload("res://scripts/ad_rules.gd").skipped(store.data,"match",id): break
 		result = mini(id+1,1000)
 	return result
 
@@ -479,6 +492,7 @@ func show_match_levels() -> void:
 	scroll.add_child(grid)
 	for id in range(match_group*25+1,(match_group+1)*25+1):
 		var text_value := str(id)+(" +" if id in store.data.match3.completed else "")
+		if preload("res://scripts/ad_rules.gd").skipped(store.data,"match",id) and id not in store.data.match3.completed: text_value += words(" П"," S")
 		var item := button(text_value,open_match.bind(id),grid)
 		item.custom_minimum_size.y=88; item.disabled=id>match_unlocked()
 	label(words("Букетов собрано: ", "Bouquets completed: ")+"%d / 1000" % store.data.match3.completed.size(),22,MUTED)
@@ -552,6 +566,7 @@ func open_match(id: int) -> void:
 	match_hint_button=button(words("Подсказка", "Hint"),match_hint,row)
 	match_restart_button=button(words("Заново", "Retry"),restart_match,row)
 	button(words("Уровни", "Levels"),show_match_levels,row)
+	if ads.enabled: button(words("Помощь · реклама","Help · ads"),ads.open_menu)
 	match_next=button(words("Следующий букет  ›", "Next bouquet  ›"),advance_match,null,true)
 	match_garden_button=button(words("Улучшить сад", "Improve the garden"),show_garden)
 	match_rest_button=button(words("Передышка · знакомый уровень","Take a break · familiar level"),match_rest)
@@ -586,6 +601,7 @@ func save_match() -> void:
 	store.data.match3.boards[str(id)]=match_model.snapshot()
 	if match_model.won() and id not in store.data.match3.completed:
 		store.data.match3.completed.append(id); match_rewarded=true
+		if ads!=null: ads.record("match",id)
 	GardenRules.sync(store.data)
 	if match_model.won() and not match_session_won:
 		Farm.grow(store.data.garden)
@@ -624,6 +640,9 @@ func match_rest() -> void:
 	match_message.text=words("Спокойная передышка. Победа растит цветы; монеты повторно не выдаются.","A gentle break. Winning grows flowers; coins are not awarded twice.")
 
 func advance_match() -> void:
+	ads.transition(advance_match_now)
+
+func advance_match_now() -> void:
 	var id: int=int(match_model.level.id)
 	if id<1000: open_match(id+1)
 	else: show_match_levels()

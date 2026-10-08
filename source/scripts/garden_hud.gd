@@ -54,9 +54,13 @@ func _init(host: Control,screen: String) -> void:
 	var subtitle:=text(brand,game.words("История Джека","Jack's story"),20,Color("fff9dd"))
 	subtitle.add_theme_color_override("font_outline_color",Color("234939")); subtitle.add_theme_constant_override("outline_size",5)
 	var money:=PanelContainer.new(); money.add_theme_stylebox_override("panel",plate(Color("fff0bd"),24)); money.custom_minimum_size=Vector2(142,76); money.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; top.add_child(money)
-	var wallet_row:=HBoxContainer.new(); wallet_row.add_theme_constant_override("separation",8); money.add_child(wallet_row)
-	var coin:=TextureRect.new(); coin.texture=COIN; coin.custom_minimum_size=Vector2(34,34); coin.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; coin.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; wallet_row.add_child(coin)
-	var balance:=text(wallet_row,str(game.store.data.garden.coins),28,Color("896019")); balance.autowrap_mode=TextServer.AUTOWRAP_OFF
+	if game.ads!=null and game.ads.enabled:
+		money.mouse_default_cursor_shape=Control.CURSOR_POINTING_HAND; money.tooltip_text=game.words("50 монет за рекламу","50 coins for an ad")
+		money.gui_input.connect(func(event):
+			if event is InputEventMouseButton and event.button_index==MOUSE_BUTTON_LEFT and event.pressed: game.ads.open_menu())
+	var wallet_row:=HBoxContainer.new(); wallet_row.add_theme_constant_override("separation",8); money.add_child(wallet_row); wallet_row.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var coin:=TextureRect.new(); coin.texture=COIN; coin.custom_minimum_size=Vector2(34,34); coin.expand_mode=TextureRect.EXPAND_IGNORE_SIZE; coin.stretch_mode=TextureRect.STRETCH_KEEP_ASPECT_CENTERED; wallet_row.add_child(coin); coin.mouse_filter=Control.MOUSE_FILTER_IGNORE
+	var balance:=text(wallet_row,str(game.store.data.garden.coins)+(" +" if game.ads!=null and game.ads.enabled else ""),28,Color("896019")); balance.autowrap_mode=TextServer.AUTOWRAP_OFF; balance.mouse_filter=Control.MOUSE_FILTER_IGNORE
 	var settings: Button=game.button("☼",game.show_settings,top); settings.tooltip_text=game.words("Настройки","Settings"); settings.custom_minimum_size=Vector2(76,76); settings.size_flags_horizontal=Control.SIZE_SHRINK_BEGIN; settings.size_flags_vertical=Control.SIZE_SHRINK_BEGIN; settings.add_theme_font_size_override("font_size",36); icon_button(settings,SETTINGS)
 	var space:=Control.new(); space.mouse_filter=Control.MOUSE_FILTER_IGNORE; space.size_flags_vertical=Control.SIZE_EXPAND_FILL; stack.add_child(space)
 	var control_row:=HBoxContainer.new(); control_row.mouse_filter=Control.MOUSE_FILTER_IGNORE; stack.add_child(control_row)
