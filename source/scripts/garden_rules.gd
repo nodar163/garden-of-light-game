@@ -35,6 +35,8 @@ static func valid(g: Variant) -> bool:
 	if not g is Dictionary or g.get("version")!=1: return false
 	for key in ["coins","orders","intro_step"]:
 		if not typeof(g.get(key)) in [TYPE_INT,TYPE_FLOAT] or float(g[key])!=int(g[key]) or int(g[key])<0: return false
+	if g.has("requests") and not preload("res://scripts/garden_requests.gd").valid(g.requests): return false
+	if g.has("estate_styles") and not Estate.styles_valid(g.estate_styles): return false
 	if g.has("estate") and not Estate.valid(g.estate): return false
 	if g.has("story") and not Story.valid(g.story): return false
 	if g.has("farm") and not Farm.valid(g.farm): return false

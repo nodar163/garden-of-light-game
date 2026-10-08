@@ -66,6 +66,8 @@ func _exit_tree() -> void:
 		garden_ui.journal_view=null
 		if garden_ui.estate!=null: garden_ui.estate.ui=null; garden_ui.estate.game=null; garden_ui.estate.map=null
 		garden_ui.estate=null
+		if garden_ui.requests!=null: garden_ui.requests.ui=null; garden_ui.requests.game=null
+		garden_ui.requests=null
 		if garden_ui.business!=null: garden_ui.business.garden_ui=null
 		garden_ui.business=null; garden_ui.hud=null; garden_ui=null
 

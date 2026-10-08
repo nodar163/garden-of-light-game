@@ -36,7 +36,7 @@ func _initialize() -> void:
 	check(not Saves.valid(invalid),"invalid repair IDs rejected")
 	invalid=save.duplicate(true); invalid.garden.estate["house:0"]=1.5
 	check(not Saves.valid(invalid),"fractional tiers rejected")
-	g.farm=Farm.defaults(); Farm.ensure(g)
+	g.estate={}; g.farm=Farm.defaults(); Farm.ensure(g)
 	check(Farm.plant(g,0,0) and Farm.plant(g,1,1),"paired varieties planted")
 	check(Farm.companion_bonus(g,0)==1,"complementary planting bonus")
 	check(Farm.cultivate(g,0) and not Farm.cultivate(g,0),"compost once per crop")

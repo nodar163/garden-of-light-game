@@ -19,7 +19,7 @@ static func valid(value: Variant) -> bool:
 	if value.has("tutorial_seen"):
 		if not value.tutorial_seen is Array: return false
 		for key in value.tutorial_seen:
-			if key not in ["garden","light","match","nursery","shop","journal","upgrades","album","settings","levels","story","backup","house","estate","florist_craft","nursery_care"]: return false
+			if key not in ["garden","light","match","nursery","shop","journal","upgrades","album","settings","levels","story","backup","house","estate","florist_craft","nursery_care","living_garden"]: return false
 	if not value.get("completed") is Array or not value.get("boards") is Dictionary or not value.get("settings") is Dictionary:
 		return false
 	if not typeof(value.get("current")) in [TYPE_INT, TYPE_FLOAT] or float(value.current) != int(value.current) or int(value.current) < 1:

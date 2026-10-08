@@ -134,7 +134,7 @@ func refresh() -> void:
 		for amount in g().farm.stock: stock+=int(amount)
 		add_label(words("Корзина · %d","Basket · %d") % stock,TOOL_POS[2]+Vector3(0,1.5,0),34)
 		for i in 6:
-			var unlocked: bool=g().earned.size()>=int(Farm.SPECIES[i][6])
+			var unlocked: bool=Farm.Estate.progress(g())>=int(Farm.SPECIES[i][6])
 			add_label(str(int(Farm.SPECIES[i][7])) if unlocked else words("%d побед","%d wins") % Farm.SPECIES[i][6],seed_pos(i)+Vector3(0,.98,.5),24)
 	else:
 		var counts: Array=Farm.draft_counts(g())
@@ -321,7 +321,7 @@ func perform_drop(kind: String, id: int, point: Vector2) -> bool:
 		elif kind=="seed" and target>=0:
 			if g().farm.beds.has(str(target)): message=words("Эта грядка занята. Для смены сорта используй лопатку.","This bed is occupied. Use the spade to change its variety.")
 			elif target not in g().farm.prepared: message=words("Сначала подготовь землю лопаткой.","Prepare the soil with the spade first.")
-			elif g().earned.size()<int(Farm.SPECIES[id][6]): message=words("Этот сорт откроется после %d побед.","This variety unlocks after %d wins.") % int(Farm.SPECIES[id][6])
+			elif Farm.Estate.progress(g())<int(Farm.SPECIES[id][6]): message=words("Нужно %d очков развития для этого сорта.","This variety requires %d development points.") % int(Farm.SPECIES[id][6])
 			elif int(g().coins)<int(Farm.SPECIES[id][7]): message=words("На семена нужно %d монет. Новые уровни дают монеты.","Seeds cost %d coins. New levels earn coins.") % int(Farm.SPECIES[id][7])
 			else: success=game.store.garden_transaction(func(data): return Farm.plant(data,target,id))
 		elif kind=="bed" and near(point,TOOL_POS[2],1.2):

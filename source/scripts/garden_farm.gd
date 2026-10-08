@@ -1,4 +1,6 @@
 extends RefCounted
+const Estate=preload("res://scripts/estate_rules.gd")
+const Requests=preload("res://scripts/garden_requests.gd")
 ## Productive nursery and flower-shop rules. Decorative plots remain independent.
 
 const SPECIES = [
@@ -140,7 +142,7 @@ static func build_garden(g: Dictionary, id: int) -> bool:
 static func plant(g: Dictionary, slot: int, species: int) -> bool:
 	ensure(g)
 	if slot < 0 or slot >= 6 or species < 0 or species >= SPECIES.size(): return false
-	if g.farm.beds.has(str(slot)) or g.earned.size() < int(SPECIES[species][6]): return false
+	if g.farm.beds.has(str(slot)) or Estate.progress(g) < int(SPECIES[species][6]): return false
 	var cost: int = int(SPECIES[species][7])
 	if int(g.coins) < cost: return false
 	g.coins -= cost
@@ -190,10 +192,11 @@ static func harvest(g: Dictionary, slot: int) -> int:
 	var bed: Variant = g.farm.beds.get(str(slot))
 	if not bed is Dictionary or int(bed.growth) < 3: return 0
 	var species: int = int(bed.species)
-	var amount: int = mini(int(bed.tier) + 1 + (1 if 0 in g.farm.buildings else 0) + (1 if bed.get("cultivated",false) else 0) + companion_bonus(g,slot), 999 - int(g.farm.stock[species]))
+	var amount: int = mini(int(bed.tier) + 1 + (1 if 0 in g.farm.buildings else 0) + (1 if bed.get("cultivated",false) else 0) + companion_bonus(g,slot) + Estate.room_rank(g,2), 999 - int(g.farm.stock[species]))
 	if amount <= 0: return 0
 	g.farm.stock[species] += amount
 	g.farm.harvested += amount
+	g.coins+=Estate.room_rank(g,3)*2
 	bed.growth = 0
 	bed.watered = false
 	bed.cultivated=false
@@ -262,6 +265,10 @@ static func bouquet(g: Dictionary, picked: Array) -> Dictionary:
 	if picked==draft_counts(g):
 		coins+=(8 if g.farm.draft.get("trimmed",false) else 0)+(8 if g.farm.draft.get("tied",false) else 0)
 		if g.farm.draft.wrapped and int(g.farm.draft.wrap)==int(g.farm.orders_done)%3: coins+=6
+	coins+=Estate.room_rank(g,0)*2
+	if picked==draft_counts(g):
+		if g.farm.draft.wrapped and int(g.farm.draft.wrap)==int(g.farm.orders_done)%3: coins+=Estate.room_rank(g,4)*2
+		if g.farm.draft.get("trimmed",false) and g.farm.draft.get("tied",false): coins+=Estate.room_rank(g,5)*2
 	return {"valid": true, "quality": quality, "coins": coins, "reputation": 2 if quality >= 2 else 1}
 
 static func sell(g: Dictionary, picked: Array, flowers: Array=[], wrap: int=0) -> bool:
@@ -283,6 +290,7 @@ static func sell(g: Dictionary, picked: Array, flowers: Array=[], wrap: int=0) -
 	g.coins += int(result.coins)
 	g.farm.reputation += int(result.reputation)
 	g.farm.orders_done += 1
+	Requests.sold(g,picked)
 	g.farm.album.append({"flowers":composition,"wrap":wrap,"customer":customer_id,"coins":int(result.coins)})
 	if g.farm.album.size()>12: g.farm.album.pop_front()
 	return true
@@ -326,8 +334,8 @@ static func claim_story(g: Dictionary, id: int) -> bool:
 static func cultivate(g: Dictionary,slot: int) -> bool:
 	ensure(g)
 	var bed: Variant=g.farm.beds.get(str(slot))
-	if not bed is Dictionary or bed.cultivated or int(bed.growth)>=3 or int(g.coins)<5: return false
-	g.coins-=5; bed.cultivated=true; return true
+	if not bed is Dictionary or bed.cultivated or int(bed.growth)>=3 or int(g.coins)<5-Estate.room_rank(g,1): return false
+	g.coins-=5-Estate.room_rank(g,1); bed.cultivated=true; return true
 
 static func companion_bonus(g: Dictionary,slot: int) -> int:
 	var bed: Variant=g.farm.beds.get(str(slot))

@@ -3,6 +3,8 @@ signal selected(id: int)
 signal entrance(kind: String)
 const Rules=preload("res://scripts/estate_rules.gd")
 var house:=false
+var reduced:=false
+var life: Control
 var garden: Dictionary
 var english:=false
 var zoom:=2.5
@@ -19,7 +21,11 @@ func _ready() -> void:
 	picture.texture=load("res://assets/"+("house" if house else "estate")+"-abandoned.png")
 	material_map=ShaderMaterial.new(); material_map.shader=preload("res://scripts/estate_map.gdshader")
 	material_map.set_shader_parameter("restored_map",load("res://assets/"+("house" if house else "estate")+"-restored.png")); picture.material=material_map
+	if house:
+		material_map.set_shader_parameter("rose_map",load("res://assets/house-rose.png"))
+		material_map.set_shader_parameter("lavender_map",load("res://assets/house-lavender.png"))
 	resized.connect(refresh); refresh()
+	life=preload("res://scripts/estate_life.gd").new(); life.map=self; life.reduced=reduced; add_child(life)
 
 func points() -> Array: return Rules.HOUSE_POINTS if house else Rules.LAND_POINTS
 func scale_value() -> float: return minf(size.x/WORLD.x,size.y/WORLD.y)*zoom
@@ -39,13 +45,17 @@ func refresh() -> void:
 	var central:=PackedFloat32Array()
 	for id in [0,0,1,2,3,4]: central.append(1.0 if id in garden.repairs else 0.0)
 	material_map.set_shader_parameter("central",central)
+	var styles:=PackedFloat32Array()
+	for id in 24: styles.append(float(garden.get("estate_styles",{}).get(Rules.key(house,id),0)) if Rules.tier(garden,house,id)==3 else 0.0)
+	material_map.set_shader_parameter("styles",styles)
+	if is_instance_valid(life): life.queue_redraw()
 func _draw() -> void:
 	for id in 24:
 		if zoom<2.2 and id%4!=0: continue
 		var at:=screen(points()[id])
 		if not Rect2(Vector2.ZERO,size).grow(40).has_point(at): continue
 		var t:=Rules.tier(garden,house,id)
-		var ready: bool=t<3 and garden.earned.size()>=Rules.required(house,id,t+1)
+		var ready: bool=t<3 and Rules.progress(garden)>=Rules.required(house,id,t+1)
 		draw_circle(at,22,Color("fff3cf") if ready else Color("326451"),true,-1,true)
 		draw_string(ThemeDB.fallback_font,at+Vector2(-8,8),"+" if zoom<2.2 else "✓" if t==3 else str(t+1),HORIZONTAL_ALIGNMENT_LEFT,-1,23,Color("285342") if ready else Color("fff5df"))
 	if not house:

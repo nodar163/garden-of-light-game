@@ -123,6 +123,7 @@ func place(kind: String) -> void:
 	else:
 		var improve: Button=game.button(words("Развитие","Upgrades"),upgrades,options); improve.add_theme_font_size_override("font_size",20); improve.custom_minimum_size.y=56
 		var memories: Button=game.button(words("Альбом","Album"),album,options); memories.add_theme_font_size_override("font_size",20); memories.custom_minimum_size.y=56
+	if kind=="shop": game.button(words("Истории","Requests"),garden_ui.requests.show,options).add_theme_font_size_override("font_size",20)
 	var play: Button=game.button(words("К уровням","Play levels"),garden_ui.modes,options,true); play.add_theme_font_size_override("font_size",20); play.custom_minimum_size.y=56
 	if preload("res://scripts/tutorial.gd").seen(game.store.data,kind): game.tutorial.maybe_open("nursery_care" if kind=="nursery" else "florist_craft")
 	else: game.tutorial.maybe_open(kind)

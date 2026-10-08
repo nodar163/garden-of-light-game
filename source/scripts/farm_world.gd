@@ -60,8 +60,8 @@ func refresh() -> void:
 			if bed is Dictionary: caption=words("Собрать","Harvest") if int(bed.growth)==3 else words("Рост %d/3","Growth %d/3") % int(bed.growth)
 			elif i in g().farm.prepared: caption=words("Посадить","Plant")
 			badge(caption,projected(BED_POS[i])+Vector2(0,size.x*.032),size.x*.32)
-			var unlocked: bool=g().earned.size()>=int(Farm.SPECIES[i][6])
-			badge(str(int(Farm.SPECIES[i][7])) if unlocked else words("%d ур.","%d wins") % int(Farm.SPECIES[i][6]),projected(seed_pos(i))+Vector2(0,size.x*.023),size.x*.14)
+			var unlocked: bool=Farm.Estate.progress(g())>=int(Farm.SPECIES[i][6])
+			badge(str(int(Farm.SPECIES[i][7])) if unlocked else words("%d разв.","%d points") % int(Farm.SPECIES[i][6]),projected(seed_pos(i))+Vector2(0,size.x*.023),size.x*.14)
 		for i in 3: badge(words(["Лопатка","Лейка","Корзина"][i],["Spade","Water","Basket"][i]),projected(TOOL_POS[i])+Vector2(0,size.x*.075),size.x*.23)
 	else:
 		var counts: Array=Farm.draft_counts(g())
@@ -79,7 +79,7 @@ func refresh() -> void:
 		badge(words("Секатор +8","Trim +8"),point(Vector2(.17,.672)),size.x*.25)
 		badge(words("Бант +8","Bow +8"),point(Vector2(.17,.777)),size.x*.23)
 		badge(words("Бумага: ","Paper: ")+words(["крафт","мята","лаванда"][int(g().farm.orders_done)%3],["kraft","mint","lavender"][int(g().farm.orders_done)%3])+" +6",point(Vector2(.61,.128)),size.x*.48)
-	else: badge(words("Компост · 5","Compost · 5"),point(Vector2(.55,.81)),size.x*.23)
+	else: badge(words("Компост · %d","Compost · %d") % (5-Farm.Estate.room_rank(g(),1)),point(Vector2(.55,.81)),size.x*.23)
 	update_guidance(); queue_redraw()
 
 func _draw() -> void:
@@ -236,7 +236,7 @@ func perform_drop(kind: String,id: int,at: Vector2) -> bool:
 		for slot in 6:
 			if near(at,BED_POS[slot],1.4):
 				var ok: bool=game.store.garden_transaction(func(data): return Farm.cultivate(data,slot))
-				message=words("Почва подкормлена: +1 цветок при сборе.","Soil fed: +1 flower at harvest.") if ok else words("Подкорми растущие цветы один раз за урожай. Нужно 5 монет.","Feed growing flowers once per harvest. Requires 5 coins.")
+				message=words("Почва подкормлена: +1 цветок при сборе.","Soil fed: +1 flower at harvest.") if ok else words("Подкорми растущие цветы один раз за урожай. Нужно %d монет.","Feed growing flowers once per harvest. Requires %d coins.") % (5-Farm.Estate.room_rank(g(),1))
 				refresh(); return ok
 		return false
 	return super.perform_drop(kind,id,at)

@@ -28,7 +28,7 @@ static func valid(value: Variant) -> bool:
 static func upgrade(g: Dictionary,house: bool,id: int) -> bool:
 	if id<0 or id>=24 or 0 not in g.repairs: return false
 	var next:=tier(g,house,id)+1
-	if next>3 or g.earned.size()<required(house,id,next) or int(g.coins)<price(next): return false
+	if next>3 or progress(g)<required(house,id,next) or int(g.coins)<price(next): return false
 	if not g.has("estate"): g.estate={}
 	g.coins-=price(next); g.estate[key(house,id)]=next; return true
 static func complete(g: Dictionary) -> bool:
@@ -38,3 +38,31 @@ static func complete(g: Dictionary) -> bool:
 	return g.earned.size()==2000
 static func name_of(house: bool,id: int,en: bool) -> String:
 	return (HOUSE_EN if en else HOUSE_RU)[id/4][id%4] if house else (LAND_EN if en else LAND_RU)[id/4][id%4]
+
+static func progress(g: Dictionary) -> int:
+	var farm: Dictionary=g.get("farm",{})
+	return mini(2000,g.earned.size()+int(farm.get("orders_done",0))*3+int(farm.get("harvested",0))/2)
+
+static func room_rank(g: Dictionary,room: int) -> int:
+	var stages:=0
+	for id in range(room*4,room*4+4): stages+=tier(g,true,id)
+	return stages/4
+
+static func benefit(g: Dictionary,room: int,en: bool) -> String:
+	var rank:=room_rank(g,room)
+	var ru=["Гостиная: +%d монет за букет","Кухня: компост дешевле на %d монет","Зимний сад: +%d цветков за урожай","Спальня: +%d монет за сбор урожая","Библиотека: +%d монет за любимую бумагу","Мастерская: +%d монет за секатор и бант"]
+	var eng=["Lounge: +%d coins per bouquet","Kitchen: compost costs %d coins less","Conservatory: +%d flowers per harvest","Bedroom: +%d coins per harvest","Library: +%d coins for preferred paper","Studio: +%d coins for trimming and a bow"]
+	return (eng if en else ru)[room] % (rank if room in [1,2] else rank*2)
+
+static func choose(g: Dictionary,house: bool,id: int,style: int) -> bool:
+	if id<0 or id>=24 or style<0 or style>2 or tier(g,house,id)<3: return false
+	if not g.has("estate_styles"): g.estate_styles={}
+	g.estate_styles[key(house,id)]=style; return true
+
+static func styles_valid(value: Variant) -> bool:
+	if not value is Dictionary: return false
+	var shifted: Dictionary={}
+	for k in value:
+		if not typeof(value[k]) in [TYPE_INT,TYPE_FLOAT] or float(value[k])!=int(value[k]): return false
+		shifted[k]=int(value[k])+1
+	return valid(shifted)

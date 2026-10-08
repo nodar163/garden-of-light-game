@@ -17,6 +17,7 @@ var category:=0
 var message:=""
 var replay:=false
 var business: RefCounted
+var requests: RefCounted
 var estate: RefCounted
 var journal_view: RefCounted
 
@@ -24,6 +25,7 @@ func _init(host: Control) -> void:
 	game=host
 	business=Business.new(self)
 	estate=preload("res://scripts/estate_ui.gd").new(self)
+	requests=preload("res://scripts/requests_ui.gd").new(self)
 func words(ru: String,en: String) -> String: return game.words(ru,en)
 func english() -> bool: return game.store.data.settings.language=="en"
 func g() -> Dictionary: return game.store.data.garden
@@ -65,7 +67,7 @@ func home() -> void:
 	HUD.text(copy,words("ДЖЕК · НАША СЛЕДУЮЩАЯ ЦЕЛЬ","JACK · OUR NEXT TASK"),18,HUD.SOFT)
 	HUD.text(copy,task_title(),28)
 	HUD.text(copy,task_detail(),20,HUD.SOFT)
-	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 2000; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else g().earned.size(); progress.show_percentage=false; progress.custom_minimum_size.y=10
+	var progress:=ProgressBar.new(); progress.max_value=Story.STEPS.size() if Story.next(g())<Story.STEPS.size() else 2000; progress.value=g().story.claimed.size() if Story.next(g())<Story.STEPS.size() else Rules.Estate.progress(g()); progress.show_percentage=false; progress.custom_minimum_size.y=10
 	progress.add_theme_stylebox_override("background",game.style(Color("dfe5cd"),Color("dfe5cd")))
 	progress.add_theme_stylebox_override("fill",game.style(Color("67ac60"),Color("67ac60"))); copy.add_child(progress)
 	game.button(words("К следующему шагу  ›","Take the next step  ›"),run_goal,hud.content,true)
@@ -83,6 +85,8 @@ func find_nursery() -> void:
 	move_source=-1; slot=-1; repair_index=-1; pending=-1; show()
 
 func next_goal() -> Dictionary:
+	var request_state: Dictionary=preload("res://scripts/garden_requests.gd").state(g())
+	if request_state.ready: return {"action":"requests","title":words("Тебе письмо от покупателя","A customer wrote to you"),"detail":words("Узнай продолжение истории и забери 60 монет.","Read what happened next and collect 60 coins.")}
 	# One actionable goal; optional stories remain available in the journal.
 	if g().plots.is_empty() and g().coins<50: return {"action":"play","title":words("Монеты для первых цветов","Coins for our first flowers"),"detail":words("Новая победа даёт 25 монет. Космеи стоят 50.","A new win earns 25 coins. Cosmos cost 50.")}
 	if g().plots.is_empty(): return {"action":"plant","title":words("Первый живой уголок","Our first living corner"),"detail":words("Посади космеи у дома за 50 монет.","Plant cosmos by the cottage for 50 coins.")}
@@ -114,9 +118,12 @@ func next_goal() -> Dictionary:
 			if tier_value>=3: continue
 			var need: int=Rules.Estate.required(home_space,id,tier_value+1)
 			if need<best_need: best_need=need; best_id=id; inside=home_space
+	if best_id>=0 and int(request_state.next)<8 and Farm.can_enter(g(),"shop"):
+		var request: Array=preload("res://scripts/garden_requests.gd").REQUESTS[int(request_state.next)]
+		if int(g().farm.stock[int(request[2])])>=int(request[3]): return {"action":"requests","title":words("Цветы для маленькой истории","Flowers for a little story"),"detail":words("Урожай готов. Собери букет, продай его и приблизь следующий ремонт.","Your harvest is ready. Make a bouquet, sell it and work toward your next repair.")}
 	if best_id>=0:
 		var price: int=Rules.Estate.price(Rules.Estate.tier(g(),inside,best_id)+1)
-		return {"action":"estate" if g().earned.size()>=best_need and int(g().coins)>=price else "play","id":best_id,"inside":inside,"title":Rules.Estate.name_of(inside,best_id,english()),"detail":words("Дом и усадьба: победы %d/%d · ремонт %d монет.","Home and estate: first wins %d/%d · repair %d coins.") % [g().earned.size(),best_need,price]}
+		return {"action":"estate" if Rules.Estate.progress(g())>=best_need and int(g().coins)>=price else "activities","id":best_id,"inside":inside,"title":Rules.Estate.name_of(inside,best_id,english()),"detail":words("Дом и усадьба: развитие %d/%d · ремонт %d монет.","Home and estate: development %d/%d · repair %d coins.") % [Rules.Estate.progress(g()),best_need,price]}
 	return {"action":"journal","title":words("Сад, который создали мы","A garden we made together"),"detail":words("Открывай новые истории, сорта и украшения.","Discover new stories, flowers and decorations.")}
 
 func task_title() -> String: return next_goal().title
@@ -124,6 +131,8 @@ func task_detail() -> String: return next_goal().detail
 func run_goal() -> void:
 	var goal:=next_goal()
 	match goal.action:
+		"requests": requests.show()
+		"activities": requests.activities()
 		"plant": open_shop()
 		"play":
 			var light: bool=g().story.last_mode=="light"
