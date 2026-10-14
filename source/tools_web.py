@@ -66,3 +66,8 @@ worker_text = worker_text.replace('cache.addAll(CACHED_FILES)))',
                                   'cache.addAll(CACHED_FILES)).then(() => self.skipWaiting()))')
 worker.write_text(worker_text, encoding='utf-8')
 print('Web export ready:', root)
+
+# Public Android privacy policy, independent from the game cache.
+privacy_source = Path(__file__).parent / "web-site/privacy.html"
+if privacy_source.exists():
+    (root / "privacy.html").write_text(privacy_source.read_text(encoding="utf-8"),encoding="utf-8")

@@ -2,7 +2,8 @@
 .tools/
 artifacts/
 android/
-web-site/
+web-site/*
+!web-site/privacy.html
 *.import
 *.keystore
 *.jks

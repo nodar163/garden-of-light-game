@@ -403,6 +403,9 @@ func show_garden_now() -> void:
 
 func show_settings() -> void:
 	clear_page("settings")
+	var previous:=root_box; shell.remove_child(previous); previous.queue_free()
+	var scroll:=ScrollContainer.new(); shell.add_child(scroll)
+	root_box=VBoxContainer.new(); root_box.size_flags_horizontal=Control.SIZE_EXPAND_FILL; root_box.add_theme_constant_override("separation",16); scroll.add_child(root_box)
 	header(words("Настройки", "Settings"))
 	label(words("Как вам спокойно", "Make yourself at home"), 40)
 	spacer()
@@ -416,8 +419,9 @@ func show_settings() -> void:
 		button(entry[1],set_language.bind(code),languages,store.data.settings.language==code)
 
 	spacer()
-	label(words("Прогресс хранится в этом браузере. Интернет нужен для первой загрузки и обновлений; игровых аккаунтов и аналитики нет.", "Progress stays in this browser. Internet is needed for the first download and updates; there are no game accounts or analytics."), 22, MUTED)
+	label(words("Прогресс хранится на устройстве. Игра работает без интернета; аккаунтов и аналитики нет.","Progress stays on this device. Play offline; there are no game accounts or analytics.") if not OS.has_feature("web") else words("Прогресс хранится в этом браузере. Интернет нужен для первой загрузки и обновлений.","Progress stays in this browser. Internet is needed for the first download and updates."),22,MUTED)
 	label(words("При удалении приложения прогресс может быть потерян.", "Uninstalling the app may remove your progress."), 18, MUTED)
+	if not OS.has_feature("web"): button(words("Конфиденциальность","Privacy"),func(): preload("res://scripts/privacy_ui.gd").show(self))
 	button(words("История Джека", "Jack's story"),func(): garden_ui.replay=true; garden_ui.intro(0))
 	button(words("Резервная копия", "Save backup"),show_backup)
 	button(words("Лицензии", "Licenses"), show_licenses)
